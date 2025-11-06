@@ -1,70 +1,52 @@
-# Specifies intentionally untracked files to ignore when using Git
-# http://git-scm.com/docs/gitignore
+# See http://help.github.com/ignore-files/ for more about ignoring files.
 
-*~
-*.sw[mnpcod]
-.tmp
-*.tmp
-*.tmp.*
-UserInterfaceState.xcuserstate
-$RECYCLE.BIN/
-
-*.log
-log.txt
-
-
-/.sourcemaps
-/.versions
-/coverage
-
-# Ionic
-/.ionic
-/www
-/platforms
-/plugins
-
-# Compiled output
+# compiled output
 /dist
 /tmp
 /out-tsc
-/bazel-out
+/app-builds
+/release
+main.js
+src/**/*.js
+*.js.map
 
-# Node
-/node_modules
-npm-debug.log
-yarn-error.log
+# dependencies
+node_modules
 
 # IDEs and editors
-.idea/
+.idea
 .project
 .classpath
 .c9/
 *.launch
 .settings/
-*.sublime-project
 *.sublime-workspace
 
-# Visual Studio Code
+# IDE - VSCode
 .vscode/*
-!.vscode/settings.json
+.vscode/settings.json
 !.vscode/tasks.json
 !.vscode/launch.json
 !.vscode/extensions.json
-.history/*
 
-
-# Miscellaneous
-/.angular
+# misc
 /.angular/cache
-.sass-cache/
-/.nx
-/.nx/cache
+/.sass-cache
 /connect.lock
 /coverage
 /libpeerconnection.log
+npm-debug.log
 testem.log
 /typings
+.nx
 
-# System files
+# e2e
+/e2e/*.js
+!/e2e/protractor.conf.js
+/e2e/*.map
+/e2e/tracing
+/e2e/screenshots
+
+# System Files
 .DS_Store
 Thumbs.db

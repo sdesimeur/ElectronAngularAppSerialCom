@@ -1,7 +1,0 @@
-{
-  "name": "PC_App_SerialCom",
-  "integrations": {
-    "capacitor": {}
-  },
-  "type": "angular-standalone"
-}
