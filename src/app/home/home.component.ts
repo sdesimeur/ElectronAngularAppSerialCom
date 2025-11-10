@@ -19,11 +19,22 @@ export class HomeComponent implements OnInit {
 
   ngOnInit(): void {
     console.log('HomeComponent INIT');
+    SerialPort.SerialPort.list().then(ports => {
+      console.log(JSON.stringify(ports));
+    })
   }
 
   listSerialPorts() {
-    SerialPort.SerialPort.list().then(ports => {
-      console.log(JSON.stringify(ports));
+    let port = new SerialPort.SerialPort({
+      path: '/dev/ttyUSB0',
+      baudRate: 115200,
+    });
+    port.write('main screen turn on', function(err) {
+      if (err) {
+        console.log('Error on write: ', err.message);
+        return;
+      }
+      console.log('message written')
     })
   }
 }
