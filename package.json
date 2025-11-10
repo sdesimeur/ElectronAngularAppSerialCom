@@ -24,6 +24,11 @@
   ],
   "main": "app/main.js",
   "private": true,
+  "pkg": {
+    "assets": [
+      "node_modules/@serialport/bindings-cpp/prebuilds/**/*"
+    ]
+  },
   "scripts": {
     "postinstall": "electron-builder install-app-deps",
     "ng": "ng",
@@ -33,7 +38,7 @@
     "build:dev": "npm run build -- -c dev",
     "build:prod": "npm run build -- -c production",
     "web:build": "npm run build -- -c web-production",
-    "electron": "electron",
+    "electron": "electron .",
     "electron:serve-tsc": "tsc -p tsconfig.serve.json",
     "electron:serve": "wait-on tcp:4200 && npm run electron:serve-tsc && electron . --serve",
     "electron:local": "npm run build:dev && electron .",

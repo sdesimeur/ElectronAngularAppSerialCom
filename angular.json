@@ -43,7 +43,10 @@
             "customWebpackConfig": {
               "path": "./angular.webpack.js",
               "replaceDuplicatePlugins": true
-            }
+            },
+            "allowedCommonJsDependencies": [
+              "serialport"
+            ]
           },
           "configurations": {
             "dev": {

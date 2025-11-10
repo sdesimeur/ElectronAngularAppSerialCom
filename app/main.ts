@@ -1,6 +1,7 @@
 import {app, BrowserWindow, screen} from 'electron';
 import * as path from 'path';
 import * as fs from 'fs';
+const SerialPort = require('serialport');
 
 let win: BrowserWindow | null = null;
 const args = process.argv.slice(1),

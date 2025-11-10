@@ -30,3 +30,10 @@ module.exports = (config, options) => {
 
     return config;
 }
+
+module.exports = {
+    externals: 'serialport',
+    output: {
+        library: { type: 'commonjs2' } 
+    }
+};
