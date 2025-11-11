@@ -4,9 +4,7 @@
   </h1>
   <mat-label>Favorite food</mat-label>
   <mat-select>
-    @for (sp of serialPorts; track sp) {
-      <mat-option [value]="sp.value">{{sp.viewValue}}</mat-option>
-    }
+      <mat-option *ngFor="let sp of serialPorts; index as i" [value]="sp.value" >{{sp.viewValue}}</mat-option>
   </mat-select>
   <a (click)="listSerialPorts()">Scan serial ports</a>
 

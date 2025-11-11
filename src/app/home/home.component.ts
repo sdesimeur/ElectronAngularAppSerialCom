@@ -1,4 +1,4 @@
-import { Component, OnInit } from '@angular/core';
+import { ChangeDetectionStrategy, Component, OnInit, CUSTOM_ELEMENTS_SCHEMA, ChangeDetectorRef } from '@angular/core';
 import { Router, RouterLink } from '@angular/router';
 import { TranslateModule } from '@ngx-translate/core';
 import * as SerialPort from 'serialport';
@@ -13,19 +13,21 @@ import {MatFormFieldModule} from '@angular/material/form-field';
     templateUrl: './home.component.html',
     styleUrls: ['./home.component.scss'],
     standalone: true,
+    changeDetection: ChangeDetectionStrategy.OnPush, // using OnPush
     imports: [
       RouterLink, 
       TranslateModule,
       MatFormFieldModule,
       MatSelectModule,
       MatInputModule
-  ]
+  ],
+  schemas: [ CUSTOM_ELEMENTS_SCHEMA ]
 })
 export class HomeComponent implements OnInit {
   //serialPort: SerialPort.SerialPort;
   serialPorts: PortInfo[] = [];
 
-  constructor(private router: Router) { 
+  constructor(private ref: ChangeDetectorRef, private router: Router) { 
     //this.serialPort = window.require('serialport');
   }
 
@@ -37,7 +39,8 @@ export class HomeComponent implements OnInit {
           this.serialPorts.push(e);
         }
       });
-    })
+    });
+    this.ref.detectChanges();
   }
 
   listSerialPorts() {
