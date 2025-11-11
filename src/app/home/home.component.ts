@@ -2,16 +2,28 @@ import { Component, OnInit } from '@angular/core';
 import { Router, RouterLink } from '@angular/router';
 import { TranslateModule } from '@ngx-translate/core';
 import * as SerialPort from 'serialport';
+import * as CryptoJS from 'crypto-js';
+import { PortInfo } from "@serialport/bindings-interface";
+import {MatInputModule} from '@angular/material/input';
+import {MatSelectModule} from '@angular/material/select';
+import {MatFormFieldModule} from '@angular/material/form-field';
 
 @Component({
     selector: 'app-home',
     templateUrl: './home.component.html',
     styleUrls: ['./home.component.scss'],
     standalone: true,
-    imports: [RouterLink, TranslateModule]
+    imports: [
+      RouterLink, 
+      TranslateModule,
+      MatFormFieldModule,
+      MatSelectModule,
+      MatInputModule
+  ]
 })
 export class HomeComponent implements OnInit {
   //serialPort: SerialPort.SerialPort;
+  serialPorts: PortInfo[] = [];
 
   constructor(private router: Router) { 
     //this.serialPort = window.require('serialport');
@@ -20,7 +32,11 @@ export class HomeComponent implements OnInit {
   ngOnInit(): void {
     console.log('HomeComponent INIT');
     SerialPort.SerialPort.list().then(ports => {
-      console.log(JSON.stringify(ports));
+      ports.forEach(e => {
+        if (e.pnpId !== undefined && e.pnpId.search(/uart/i) !== -1) {
+          this.serialPorts.push(e);
+        }
+      });
     })
   }
 

@@ -2,8 +2,12 @@
   <h1 class="title">
     {{ 'PAGES.HOME.TITLE' | translate }}
   </h1>
-
-  <a routerLink="/detail">{{ 'PAGES.HOME.GO_TO_DETAIL' | translate }}</a><br><br>
+  <mat-label>Favorite food</mat-label>
+  <mat-select>
+    @for (sp of serialPorts; track sp) {
+      <mat-option [value]="sp.value">{{sp.viewValue}}</mat-option>
+    }
+  </mat-select>
   <a (click)="listSerialPorts()">Scan serial ports</a>
 
 </div>
