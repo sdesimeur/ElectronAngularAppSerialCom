@@ -3,9 +3,13 @@
     {{ 'PAGES.HOME.TITLE' | translate }}
   </h1>
   <mat-label>Favorite food</mat-label>
-  <mat-select>
-      <mat-option *ngFor="let sp of serialPorts; index as i" [value]="sp.value" >{{sp.viewValue}}</mat-option>
-  </mat-select>
-  <a (click)="listSerialPorts()">Scan serial ports</a>
+  <div>
+    <form>
+  <select [(ngModel)]="serialPortId" [ngModelOptions]="{standalone: true}">
+    <option *ngFor="let sp of serialPorts; index as id" [ngValue]="id">{{sp.path}}</option>
+  </select>
+  </form>
+  </div>
+  <a (click)="listSerialPorts()">Connect to selected serial port</a>
 
 </div>
