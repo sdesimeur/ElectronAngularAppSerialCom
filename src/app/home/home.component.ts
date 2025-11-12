@@ -1,5 +1,4 @@
 import { ChangeDetectionStrategy, Component, OnInit, CUSTOM_ELEMENTS_SCHEMA, ChangeDetectorRef, NO_ERRORS_SCHEMA } from '@angular/core';
-import { Router, RouterLink } from '@angular/router';
 import { TranslateModule } from '@ngx-translate/core';
 import * as SerialPort from 'serialport';
 import * as CryptoJS from 'crypto-js';
@@ -14,7 +13,6 @@ import { CommonModule } from '@angular/common';
     standalone: true,
     changeDetection: ChangeDetectionStrategy.OnPush, // using OnPush
     imports: [
-      RouterLink, 
       TranslateModule,
       CommonModule,
       FormsModule
@@ -23,10 +21,11 @@ import { CommonModule } from '@angular/common';
 })
 export class HomeComponent implements OnInit {
   //serialPort: SerialPort.SerialPort;
-  serialPortId: number = -1;
+  serialPortId1: number = -1;
+  serialPortId2: number = -1;
   serialPorts: Array<PortInfo> = Array<PortInfo>();
 
-  constructor(private ref: ChangeDetectorRef, private router: Router) { 
+  constructor(private ref: ChangeDetectorRef) { 
     //this.serialPort = window.require('serialport');
   }
 
@@ -47,21 +46,28 @@ export class HomeComponent implements OnInit {
   }
 
   listSerialPorts() {
-    if (this.serialPorts[this.serialPortId] == undefined) {
+    if (this.serialPorts[this.serialPortId1] == undefined) {
       return;
     }
-    let port = new SerialPort.SerialPort({
-      path: this.serialPorts[this.serialPortId].path,
+    if (this.serialPorts[this.serialPortId2] == undefined) {
+      return;
+    }
+    let port1 = new SerialPort.SerialPort({
+      path: this.serialPorts[this.serialPortId1].path,
       baudRate: 115200,
     });
-    console.log("Connect to " + this.serialPorts[this.serialPortId].path)
-    port.write('main screen turn on', function(err) {
+    let port2 = new SerialPort.SerialPort({
+      path: this.serialPorts[this.serialPortId2].path,
+      baudRate: 115200,
+    });
+    console.log("Connect to " + this.serialPorts[this.serialPortId1].path)
+    port1.write('main screen turn on', function(err) {
       if (err) {
         console.log('Error on write: ', err.message);
         return;
       }
       console.log('message written');
-      port.close();
+      port1.close();
       });
   }
 }

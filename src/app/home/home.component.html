@@ -4,11 +4,16 @@
   </h1>
   <div>
     <form>
-  <select [(ngModel)]="serialPortId" [ngModelOptions]="{standalone: true}">
+  <select [(ngModel)]="serialPortId1" [ngModelOptions]="{standalone: true}">
+    <option *ngFor="let sp of serialPorts; index as id" [ngValue]="id">{{sp.path}}</option>
+  </select><br>
+  <select [(ngModel)]="serialPortId2" [ngModelOptions]="{standalone: true}">
     <option *ngFor="let sp of serialPorts; index as id" [ngValue]="id">{{sp.path}}</option>
   </select>
   </form>
   </div>
+  <br>
+  <br>
   <a (click)="listSerialPorts()">Connect to selected serial port</a>
 
 </div>
