@@ -1,3 +1,27 @@
 :host {
   
 }
+
+.container {
+  display: flex;
+  background-color: DodgerBlue;
+  flex-direction:row;
+  align-content: center;
+  height: 100%;
+  
+}
+
+.container div {
+  //background-color: #f1f1f1;
+  width: 50%;
+  margin: 5px;
+  padding: 5px;
+  //font-size: 30px;
+}
+
+.container div.console {
+    display: flex;
+    background-color: #000000;
+    height: 100%;
+    overflow: scroll;
+}

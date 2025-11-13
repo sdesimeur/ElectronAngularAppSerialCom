@@ -1,4 +1,5 @@
 <div class="container">
+  <div>
   <h1 class="title">
     {{ 'PAGES.HOME.TITLE' | translate }}
   </h1>
@@ -20,5 +21,12 @@
   <a (click)="sendDataSerialPort1()">send data to selected serials ports</a>
   <br>
   <br>
-  <a (click)="closeSerialPorts()">Close serials ports</a>
+  <a (click)="closeSerialPorts()">Close and reset serials ports</a>
+  <br>
+  <br>
+  <a (click)="resetSerialPorts()">Reset serials ports</a>
+  </div>
+  <div class="console">
+
+  </div>
 </div>

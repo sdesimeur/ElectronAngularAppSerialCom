@@ -45,7 +45,6 @@ export class HomeComponent implements OnInit {
     console.log('HomeComponent INIT');
     SerialPort.SerialPort.list().then(ports => {
       //console.log(JSON.stringify(ports));
-      console.log(JSON.stringify(ports));
       ports.forEach(e => {
         if (e.pnpId !== undefined && e.pnpId.search(/uart/i) !== -1) {
           this.serialPorts.push(e);
@@ -53,8 +52,6 @@ export class HomeComponent implements OnInit {
           this.serialPorts.push(e);
         }
       });
-      console.log(JSON.stringify(this.serialPorts));
-      console.log(JSON.stringify(this.serialPorts.length));
       //this.ref.detectChanges();
       this.ref.markForCheck();
     });
@@ -81,6 +78,11 @@ export class HomeComponent implements OnInit {
   
   resetSerialPort1() {
     this.serialPort1BufferReceived = new ArrayBuffer(0 , {maxByteLength : 1024 * 1024});
+  }
+
+  resetSerialPorts() {
+    this.resetSerialPort1();
+    this.resetSerialPort2();
   }
   
   startSerialPorts() {
