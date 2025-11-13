@@ -24,6 +24,15 @@ const CryptoJS = require('diffie-hellman/browser');
   //schemas: [ CUSTOM_ELEMENTS_SCHEMA, NO_ERRORS_SCHEMA ]
 })
 export class HomeComponent implements OnInit {
+  _console: string = "Contenu de la console:<br>Debut<br>";
+  set consoleHTML (a: string) {
+    this._console = a + "<br>";
+    this.ref.detectChanges();
+  }
+  get consoleHTML (): string {
+    return this._console;
+  }
+
   port1: (SerialPort.SerialPort | undefined) = undefined;
   port2: (SerialPort.SerialPort | undefined) = undefined;
   //serialPort: SerialPort.SerialPort;
@@ -104,7 +113,8 @@ export class HomeComponent implements OnInit {
       path: path,
       baudRate: 115200,
     });
-    console.log("Connect to " + path)
+    this.consoleHTML += "Connect to " + path;
+    console.log("Connect to " + path);
     this.port1.on("data", (d: Buffer) => {
       if (this.serialPort1BufferReceived !== undefined) {
         let actualLength: number = this.serialPort1BufferReceived.byteLength;
@@ -118,9 +128,11 @@ export class HomeComponent implements OnInit {
           if (this.serialPort1BufferReceived.byteLength === (2 + 2 + publicKeyBlen + sharedSecretlen)) {
             const publicKeyB : ArrayBuffer = this.serialPort1BufferReceived.slice(4, 4 + publicKeyBlen);
             const sharedSecretSent: ArrayBuffer = this.serialPort1BufferReceived.slice(4 + publicKeyBlen, 4 + publicKeyBlen + sharedSecretlen);
+            this.consoleHTML += JSON.stringify(new Uint8Array(sharedSecretSent));
             console.log(JSON.stringify(new Uint8Array(sharedSecretSent)));
             const publicKeyBUint8: Uint8Array = new Uint8Array(publicKeyB);
             const sharedSecret: ArrayBuffer = this.dh1.computeSecret(publicKeyBUint8);
+            this.consoleHTML += JSON.stringify(sharedSecret);
             console.log(JSON.stringify(sharedSecret));
           }
         }
@@ -140,6 +152,7 @@ export class HomeComponent implements OnInit {
       path: path,
       baudRate: 115200,
     });
+    this.consoleHTML += "Connect to " + path;
     console.log("Connect to " + path);
     this.port2.on("data", (d: Buffer) => {
       if (this.serialPort2BufferReceived !== undefined) {
@@ -203,16 +216,36 @@ export class HomeComponent implements OnInit {
   }
 
   closeSerialPorts () {
-    if (this.port1 !== undefined) {
-      this.port1.close();
-      console.log("Close " + this.port1.path);
+    let path: string;
+    let port: SerialPort.SerialPort;
+    
+    path  = this.serialPorts[this.serialPortId1].path;
+    port = new SerialPort.SerialPort({
+      path: path,
+      baudRate: 115200,
+    });
+
+    if (port.isOpen) {
+      port.close();
+      this.consoleHTML += "Close " + path
+      console.log("Close " + path);
       this.port1 = undefined;
     }
-    if (this.port2 !== undefined) {
-      this.port2.close();
-      console.log("Close " + this.port2.path);
+    port.destroy();
+    
+    path  = this.serialPorts[this.serialPortId2].path;
+    port = new SerialPort.SerialPort({
+      path: path,
+      baudRate: 115200,
+    });
+    
+    if (port.isOpen) {
+      port.close();
+      this.consoleHTML += "Close " + path
+      console.log("Close " + path);
       this.port2 = undefined;
     }
+    port.destroy();
   }
 
 

@@ -15,18 +15,18 @@
   </div>
   <br>
   <br>
-  <a (click)="startSerialPorts()">Connect to selected serials ports</a>
+  <a (click)="startSerialPorts()" class="button">Connect to selected serials ports</a>
   <br>
   <br>
-  <a (click)="sendDataSerialPort1()">send data to selected serials ports</a>
+  <a (click)="sendDataSerialPort1()" class="button">send data to selected serials ports</a>
   <br>
   <br>
-  <a (click)="closeSerialPorts()">Close and reset serials ports</a>
+  <a (click)="closeSerialPorts()" class="button">Close and reset serials ports</a>
   <br>
   <br>
-  <a (click)="resetSerialPorts()">Reset serials ports</a>
+  <a (click)="resetSerialPorts()" class="button">Reset serials ports</a>
   </div>
   <div class="console">
-
+    <a [innerHTML]="console"> </a>
   </div>
 </div>
