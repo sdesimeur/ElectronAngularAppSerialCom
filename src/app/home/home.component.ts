@@ -219,33 +219,38 @@ export class HomeComponent implements OnInit {
     let path: string;
     let port: SerialPort.SerialPort;
     
-    path  = this.serialPorts[this.serialPortId1].path;
-    port = new SerialPort.SerialPort({
-      path: path,
-      baudRate: 115200,
-    });
 
-    if (port.isOpen) {
-      port.close();
-      this.consoleHTML += "Close " + path
-      console.log("Close " + path);
-      this.port1 = undefined;
+    if (this.serialPortId1 !== -1 && this.serialPorts[this.serialPortId1] !== undefined) {
+      path  = this.serialPorts[this.serialPortId1].path;
+      port = new SerialPort.SerialPort({
+        path: path,
+        baudRate: 115200,
+      });
+
+      if (port.isOpen) {
+        port.close();
+        this.consoleHTML += "Close " + path
+        console.log("Close " + path);
+        this.port1 = undefined;
+      }
+      port.destroy();
     }
-    port.destroy();
     
-    path  = this.serialPorts[this.serialPortId2].path;
-    port = new SerialPort.SerialPort({
-      path: path,
-      baudRate: 115200,
-    });
-    
-    if (port.isOpen) {
-      port.close();
-      this.consoleHTML += "Close " + path
-      console.log("Close " + path);
-      this.port2 = undefined;
+    if (this.serialPortId2 !== -1 && this.serialPorts[this.serialPortId2] !== undefined) {
+      path  = this.serialPorts[this.serialPortId2].path;
+      port = new SerialPort.SerialPort({
+        path: path,
+        baudRate: 115200,
+      });
+      
+      if (port.isOpen) {
+        port.close();
+        this.consoleHTML += "Close " + path
+        console.log("Close " + path);
+        this.port2 = undefined;
+      }
+      port.destroy();
     }
-    port.destroy();
   }
 
 
