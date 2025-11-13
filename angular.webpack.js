@@ -35,5 +35,14 @@ module.exports = {
     externals: 'serialport',
     output: {
         library: { type: 'commonjs2' } 
-    }
+    },
+  resolve: {
+    fallback: {
+      "stream": require.resolve('stream-browserify'),
+      "vm": require.resolve('vm-browserify'),
+      "os": require.resolve('os-browserify'),
+      "path": require.resolve('path-browserify'),
+      "crypto": require.resolve('crypto-browserify'),
+    },
+  },
 };
