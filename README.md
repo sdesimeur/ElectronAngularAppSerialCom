@@ -65,3 +65,9 @@ npm run ng:serve
 npm run electron:serve
 ```
 
+## Documentation
+
+1. Diffie-Hellman (Javascript and Angular implementation)
+https://github.com/browserify/diffie-hellman
+https://ssojet.com/keypair-generation/generate-keypair-using-diffie-hellman-in-javascript/
+https://ssojet.com/keypair-generation/generate-keypair-using-diffie-hellman-in-angular/
