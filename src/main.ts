@@ -14,6 +14,7 @@ import { HttpClient } from '@angular/common/http';
 import { PageNotFoundComponent } from './app/shared/components';
 import { HomeComponent } from './app/home/home.component';
 import { DetailComponent } from './app/detail/detail.component';
+import { provideNgxWebstorage, withNgxWebstorageConfig, withLocalStorage, withSessionStorage } from 'ngx-webstorage';
 
 // AoT requires an exported function for factories
 const httpLoaderFactory = (http: HttpClient): TranslateHttpLoader => new TranslateHttpLoader(http, './assets/i18n/', '.json');
@@ -54,6 +55,15 @@ bootstrapApplication(AppComponent, {
           deps: [HttpClient]
         }
       })
+    ),
+    provideNgxWebstorage(
+      withNgxWebstorageConfig({
+        prefix: 'custom',
+        separator: '.',
+        caseSensitive: true
+      }),
+      withLocalStorage(),
+      withSessionStorage()
     )
   ]
 }).catch(err => console.error(err));

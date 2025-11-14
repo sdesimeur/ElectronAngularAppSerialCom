@@ -15,14 +15,14 @@ html, body {
   align-items: center;
   justify-content: center;
 
-  background: url(./assets/background.jpg) no-repeat center fixed;
+  //background: url(./assets/background.jpg) no-repeat center fixed;
   -webkit-background-size: cover; /* pour anciens Chrome et Safari */
   background-size: cover; /* version standardisée */
 
   .title {
-    color: white;
+    color: black;
     margin: 0;
-    padding: 50px 20px;
+    padding: 20px 20px;
   }
 
   a.button {
@@ -30,16 +30,16 @@ html, body {
     text-transform: uppercase;
     text-decoration: none;
     background: #ed3330;
-    padding: 20px;
+    padding: 10px;
     border-radius: 5px;
     display: inline-block;
+    margin: 5px;
     border: none;
     transition: all 0.4s ease 0s;
 
     &:hover {
       background: #fff;
-      color: #ed3330 !important;
-      letter-spacing: 1px;
+      color: #000000 !important;
       -webkit-box-shadow: 0px 5px 40px -10px rgba(0,0,0,0.57);
       -moz-box-shadow: 0px 5px 40px -10px rgba(0,0,0,0.57);
       box-shadow: 5px 40px -10px rgba(0,0,0,0.57);

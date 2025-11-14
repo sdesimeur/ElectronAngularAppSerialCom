@@ -1,32 +1,29 @@
 <div class="container">
-  <div>
+  <div class="premier">
   <h1 class="title">
-    {{ 'PAGES.HOME.TITLE' | translate }}
+    POC<br>
+    Diffie-Hellman implementation to create a session key.<br>
+    Exchange a system key.<br>
+    Exchange encrypted data.<br>
   </h1>
-  <div>
-    <form>
+  <p>Diffie-Hellman implementation referer to <B>Alice-Bob</B> exchange on this <a href="https://fr.wikipedia.org/wiki/%C3%89change_de_cl%C3%A9s_Diffie-Hellman">wiki</a></p>
+  <p>If this PC has to act as <B>Alice</B> and initiate the first exchange, select a serial device for Alice exchanges:</p>
   <select [(ngModel)]="serialPortId1" [ngModelOptions]="{standalone: true}">
     <option *ngFor="let sp of serialPorts; index as id" [ngValue]="id">{{sp.path}}</option>
   </select><br>
+  <p>If this PC has to act as <B>Bob</B> and receive the first exchange, select a serial device for Bob exchanges:</p>
   <select [(ngModel)]="serialPortId2" [ngModelOptions]="{standalone: true}">
     <option *ngFor="let sp of serialPorts; index as id" [ngValue]="id">{{sp.path}}</option>
   </select>
-  </form>
-  </div>
-  <br>
-  <br>
-  <a (click)="startSerialPorts()" class="button">Connect to selected serials ports</a>
   <br>
   <br>
   <a (click)="sendDataSerialPort1()" class="button">send data to selected serials ports</a>
   <br>
-  <br>
   <a (click)="closeSerialPorts()" class="button">Close and reset serials ports</a>
-  <br>
   <br>
   <a (click)="resetSerialPorts()" class="button">Reset serials ports</a>
   </div>
-  <div class="console">
-    <a [innerHTML]="console"> </a>
+  <div class="console deuxieme">
+    <div [innerHTML]="consoleHTML"> </div>
   </div>
 </div>

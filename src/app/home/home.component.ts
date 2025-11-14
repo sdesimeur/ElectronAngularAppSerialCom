@@ -1,4 +1,4 @@
-import { ChangeDetectionStrategy, Component, OnInit, CUSTOM_ELEMENTS_SCHEMA, ChangeDetectorRef, NO_ERRORS_SCHEMA } from '@angular/core';
+import { ChangeDetectionStrategy, Component, OnInit, CUSTOM_ELEMENTS_SCHEMA, ChangeDetectorRef, NO_ERRORS_SCHEMA, OnDestroy, HostListener } from '@angular/core';
 import { TranslateModule } from '@ngx-translate/core';
 import * as SerialPort from 'serialport';
 //import * as CryptoJS from 'crypto-js';
@@ -6,30 +6,49 @@ import * as SerialPort from 'serialport';
 import { PortInfo } from "@serialport/bindings-interface";
 import { FormsModule } from '@angular/forms';
 import { CommonModule } from '@angular/common';
+import { DomSanitizer, SafeHtml } from '@angular/platform-browser';
+import { LocalStorageService } from 'ngx-webstorage';
 
 //const CryptoJS = require('crypto-browserify');
 const CryptoJS = require('diffie-hellman/browser');
 
+enum DataType {
+  PRIME = 0,
+  GENERATOR = 1,
+  PUBLIC_KEY = 2,
+}
+
+const DataTypeStrings: Array<string> = ["PRIME", "GENERATOR", "PUBLIC_KEY"];
+
 @Component({
-    selector: 'app-home',
-    templateUrl: './home.component.html',
-    styleUrls: ['./home.component.scss'],
-    standalone: true,
-    changeDetection: ChangeDetectionStrategy.OnPush, // using OnPush
-    imports: [
-      TranslateModule,
-      CommonModule,
-      FormsModule
+  selector: 'app-home',
+  templateUrl: './home.component.html',
+  styleUrls: ['./home.component.scss'],
+  standalone: true,
+  changeDetection: ChangeDetectionStrategy.OnPush, // using OnPush
+  imports: [
+    TranslateModule,
+    CommonModule,
+    FormsModule 
   ],
   //schemas: [ CUSTOM_ELEMENTS_SCHEMA, NO_ERRORS_SCHEMA ]
 })
-export class HomeComponent implements OnInit {
-  _console: string = "Contenu de la console:<br>Debut<br>";
+export class HomeComponent implements OnInit, OnDestroy {
+
+  @HostListener("window:beforeunload", ["$event"]) unloadHandler(event: Event) {
+      console.log("Processing beforeunload...");
+      // Do more processing...
+      this.closeSerialPorts();
+  }
+  
+  _console: SafeHtml = "Contenu de la console:<br>Debut<br>";
   set consoleHTML (a: string) {
-    this._console = a + "<br>";
+    //this._console = this.sanitizer.bypassSecurityTrustHtml(a + "<br>");
+    this._console += a + "<br>";
+    console.log(JSON.stringify(a));
     this.ref.detectChanges();
   }
-  get consoleHTML (): string {
+  get consoleHTML (): SafeHtml {
     return this._console;
   }
 
@@ -44,42 +63,37 @@ export class HomeComponent implements OnInit {
 
   serialPort1BufferReceived: (ArrayBuffer| undefined) = undefined;
   serialPort2BufferReceived: (ArrayBuffer| undefined) = undefined;
-  constructor(private ref: ChangeDetectorRef) {
+
+  constructor(private ref: ChangeDetectorRef, private sanitizer: DomSanitizer, private localStorage: LocalStorageService) {
     this.resetSerialPort1();
     this.resetSerialPort2();
     //this.serialPort = window.require('serialport');
   }
 
+  ngOnDestroy() {
+    this.closeSerialPorts();
+  }
+
   ngOnInit(): void {
     console.log('HomeComponent INIT');
+    let port1Path  = this.localStorage.retrieve("lastPort1Path");
+    let port2Path  = this.localStorage.retrieve("lastPort2Path");
     SerialPort.SerialPort.list().then(ports => {
-      //console.log(JSON.stringify(ports));
       ports.forEach(e => {
-        if (e.pnpId !== undefined && e.pnpId.search(/uart/i) !== -1) {
+        if ((e.pnpId !== undefined && e.pnpId.search(/uart/i) !== -1) || e.path.startsWith("COM")) {
           this.serialPorts.push(e);
-        } else if (e.path.startsWith("COM")) {
-          this.serialPorts.push(e);
+          if (e.path === port1Path) {
+            this.serialPortId1 = this.serialPorts.length - 1;
+          } else if (e.path === port2Path) {
+            this.serialPortId2 = this.serialPorts.length - 1;
+          }
         }
+        
       });
-      //this.ref.detectChanges();
-      this.ref.markForCheck();
+      this.ref.detectChanges();
+      //console.log(JSON.stringify(this.serialPorts, null, 4));
     });
   }
-/*
-  concatenate<A>( ...arrays: A[]): A {
-    let totalLength = 0;
-    for (const arr of arrays) {
-        totalLength += arr.length;
-    }
-    const result = new A(totalLength);
-    let offset = 0;
-    for (const arr of arrays) {
-        result.set(arr, offset);
-        offset += arr.length;
-    }
-    return result;
-  }
-*/
 
   resetSerialPort2() {
     this.serialPort2BufferReceived = new ArrayBuffer(0 , {maxByteLength : 1024 * 1024});
@@ -108,32 +122,50 @@ export class HomeComponent implements OnInit {
     if (this.serialPorts[this.serialPortId1] === undefined) {
       return;
     }
+    if (this.port1 !== undefined) {
+      return;
+    }
+    this.dh1 = undefined;
     let path: string = this.serialPorts[this.serialPortId1].path;
+    this.localStorage.store('lastPort1Path', path);
     this.port1 = new SerialPort.SerialPort({
       path: path,
       baudRate: 115200,
     });
-    this.consoleHTML += "Connect to " + path;
-    console.log("Connect to " + path);
+    this.consoleHTML = "Connect to " + path;
     this.port1.on("data", (d: Buffer) => {
       if (this.serialPort1BufferReceived !== undefined) {
+        let publicKeyB : (ArrayBuffer | undefined) = undefined;
         let actualLength: number = this.serialPort1BufferReceived.byteLength;
         this.serialPort1BufferReceived.resize(actualLength + d.byteLength);
         let uint8arr : Uint8Array = new Uint8Array(this.serialPort1BufferReceived);
         uint8arr.set(d, actualLength);
         let dataview4arrbuf : DataView = new DataView(this.serialPort1BufferReceived);
-        if (dataview4arrbuf.byteLength > 4) {
-          const publicKeyBlen = dataview4arrbuf.getUint16(0);
-          const sharedSecretlen = dataview4arrbuf.getUint16(2);
-          if (this.serialPort1BufferReceived.byteLength === (2 + 2 + publicKeyBlen + sharedSecretlen)) {
-            const publicKeyB : ArrayBuffer = this.serialPort1BufferReceived.slice(4, 4 + publicKeyBlen);
-            const sharedSecretSent: ArrayBuffer = this.serialPort1BufferReceived.slice(4 + publicKeyBlen, 4 + publicKeyBlen + sharedSecretlen);
-            this.consoleHTML += JSON.stringify(new Uint8Array(sharedSecretSent));
-            console.log(JSON.stringify(new Uint8Array(sharedSecretSent)));
-            const publicKeyBUint8: Uint8Array = new Uint8Array(publicKeyB);
-            const sharedSecret: ArrayBuffer = this.dh1.computeSecret(publicKeyBUint8);
-            this.consoleHTML += JSON.stringify(sharedSecret);
-            console.log(JSON.stringify(sharedSecret));
+        if (dataview4arrbuf.byteLength > 3) {
+          let type = dataview4arrbuf.getUint8(0);
+          let len = dataview4arrbuf.getUint16(1);
+          while (this.serialPort1BufferReceived.byteLength >= (3 + len)) {
+            this.consoleHTML = "&nbsp;&nbsp;&nbsp;<u><b>Alice</b></u>";
+            const arr: ArrayBuffer = this.serialPort1BufferReceived.slice(3, 3 + len);
+            switch (type) {
+              case DataType.PRIME:
+                break;
+              case DataType.GENERATOR:
+                break;
+              case DataType.PUBLIC_KEY:
+                publicKeyB = arr;
+                break;
+            }
+            this.serialPort1BufferReceived = this.serialPort1BufferReceived.slice(3 + len);
+            if (publicKeyB !== undefined) {
+              const publicKeyBUint8: Uint8Array = new Uint8Array(publicKeyB);
+              const sharedSecret: ArrayBuffer = this.dh1.computeSecret(publicKeyBUint8);
+              this.consoleHTML = "sharedSecret calculate by Alice with Bob publicKey :";
+              this.consoleHTML = JSON.stringify(sharedSecret);
+            }
+            dataview4arrbuf = new DataView(this.serialPort1BufferReceived);
+            type = dataview4arrbuf.getUint8(0);
+            len = dataview4arrbuf.getUint16(1);
           }
         }
       }
@@ -147,13 +179,21 @@ export class HomeComponent implements OnInit {
     if (this.serialPorts[this.serialPortId2] === undefined) {
       return;
     }
+    if (this.port2 !== undefined) {
+      return;
+    }
+    this.dh2 = undefined;
     let path: string = this.serialPorts[this.serialPortId2].path;
+    this.localStorage.store('lastPort2Path', path);
     this.port2 = new SerialPort.SerialPort({
       path: path,
       baudRate: 115200,
     });
-    this.consoleHTML += "Connect to " + path;
-    console.log("Connect to " + path);
+    this.consoleHTML = "Connect to " + path;
+    let prime: (ArrayBuffer | undefined) = undefined;
+    let generator: (ArrayBuffer | undefined) = undefined;
+    let publicKeyA: (ArrayBuffer | undefined) = undefined;
+
     this.port2.on("data", (d: Buffer) => {
       if (this.serialPort2BufferReceived !== undefined) {
         let actualLength: number = this.serialPort2BufferReceived.byteLength;
@@ -161,38 +201,41 @@ export class HomeComponent implements OnInit {
         let uint8arr : Uint8Array = new Uint8Array(this.serialPort2BufferReceived);
         uint8arr.set(d, actualLength);
         let dataview4arrbuf : DataView = new DataView(this.serialPort2BufferReceived);
-        if (dataview4arrbuf.byteLength > 6) {
-          const primelen = dataview4arrbuf.getUint16(0);
-          const generatorlen = dataview4arrbuf.getUint16(2);
-          const publicKeyAlen = dataview4arrbuf.getUint16(4);
-          if (this.serialPort2BufferReceived.byteLength === (2 + 2 + 2 + primelen + generatorlen + publicKeyAlen)) {
-            const prime: ArrayBuffer = this.serialPort2BufferReceived.slice(6, 6 + primelen);
-            const generator: ArrayBuffer = this.serialPort2BufferReceived.slice(6 + primelen, 6 + primelen + generatorlen);
-            const publicKeyA: ArrayBuffer = this.serialPort2BufferReceived.slice(6 + primelen + generatorlen, 6 + primelen + generatorlen + publicKeyAlen);
-            this.dh2 = CryptoJS.createDiffieHellman(prime, generator);
-            const publicKeyB : ArrayBuffer = this.dh2.generateKeys();
-            const publicKeyBlen: number = publicKeyB.byteLength;
-            const publicKeyAUint8: Uint8Array = new Uint8Array(publicKeyA);
-            const sharedSecret: ArrayBuffer = this.dh2.computeSecret(publicKeyAUint8);
-            const sharedSecretlen: number = sharedSecret.byteLength;
-
-
-            let arrbuf : ArrayBuffer = new ArrayBuffer(2 + 2 + publicKeyBlen + sharedSecretlen);
-            let dataview4arrbuf : DataView = new DataView(arrbuf);
-            let idx: number = 0;
-            dataview4arrbuf.setUint16(idx, publicKeyBlen);
-            idx += 2;
-            dataview4arrbuf.setUint16(idx, sharedSecretlen);
-            idx += 2;
-            (new Uint8Array(publicKeyB)).forEach(n => {
-              dataview4arrbuf.setUint8(idx, n);
-              idx++;
-            });
-            (new Uint8Array(sharedSecret)).forEach(n => {
-              dataview4arrbuf.setUint8(idx, n);
-              idx++;
-            });
-            this.port2?.write(dataview4arrbuf, undefined);
+        if (dataview4arrbuf.byteLength > 3) {
+          let type: DataType = dataview4arrbuf.getUint8(0) as DataType;
+          let len = dataview4arrbuf.getUint16(1);
+          while (this.serialPort2BufferReceived.byteLength >= (3 + len)) {
+            const arr: ArrayBuffer = this.serialPort2BufferReceived.slice(3, 3 + len);
+            switch (type) {
+              case DataType.PRIME:
+                prime = arr;
+                break;
+              case DataType.GENERATOR:
+                generator = arr;
+                break;
+              case DataType.PUBLIC_KEY:
+                publicKeyA = arr;
+                break;
+            }
+            this.serialPort2BufferReceived = this.serialPort2BufferReceived.slice(3 + len);
+            if (this.dh2 === undefined && prime !== undefined && generator !== undefined) {
+              this.dh2 = CryptoJS.createDiffieHellman(prime, generator);
+            }
+            if (this.dh2 !== undefined && publicKeyA !== undefined) {
+              this.consoleHTML = "&nbsp;&nbsp;&nbsp;<u><b>Bob</b></u>";
+              const publicKeyB : ArrayBuffer = this.dh2.generateKeys();
+              const publicKeyAUint8: Uint8Array = new Uint8Array(publicKeyA);
+              
+              const sharedSecret: ArrayBuffer = this.dh2.computeSecret(publicKeyAUint8);
+              this.consoleHTML = "Shared key calculate with publicKeyAlice";
+              this.consoleHTML = JSON.stringify(new Buffer(sharedSecret));
+              
+              this.consoleHTML = "Send to Alice (publicKeyBob)";
+              this.sendDataOnPort(this.port2, DataType.PUBLIC_KEY, publicKeyB);
+            }
+            dataview4arrbuf = new DataView(this.serialPort2BufferReceived);
+            type = dataview4arrbuf.getUint8(0);
+            len = dataview4arrbuf.getUint16(1);
           }
         }
       }
@@ -200,109 +243,67 @@ export class HomeComponent implements OnInit {
   }
 
   sendDataSerialPort1 () {
-    if (this.port1 === undefined) {
-      return;
-    }
+    this.startSerialPort1();
+    this.startSerialPort2();
     this.generateKeyDH_Part1();
-    /*
-    this.port1.write('main screen turn on', function(err) {
-      if (err) {
-        console.log('Error on write: ', err.message);
-        return;
-      }
-      console.log('message written');
-    });
-    */
   }
 
   closeSerialPorts () {
-    let path: string;
-    let port: SerialPort.SerialPort;
-    
-
-    if (this.serialPortId1 !== -1 && this.serialPorts[this.serialPortId1] !== undefined) {
-      path  = this.serialPorts[this.serialPortId1].path;
-      port = new SerialPort.SerialPort({
-        path: path,
-        baudRate: 115200,
-      });
-
-      if (port.isOpen) {
-        port.close();
-        this.consoleHTML += "Close " + path
-        console.log("Close " + path);
+    if (this.port1 !== undefined) {
+      if (this.port1.isOpen) {
+        this.port1.close();
+        this.consoleHTML = "Close " + this.port1.path
         this.port1 = undefined;
       }
-      port.destroy();
     }
-    
-    if (this.serialPortId2 !== -1 && this.serialPorts[this.serialPortId2] !== undefined) {
-      path  = this.serialPorts[this.serialPortId2].path;
-      port = new SerialPort.SerialPort({
-        path: path,
-        baudRate: 115200,
-      });
-      
-      if (port.isOpen) {
-        port.close();
-        this.consoleHTML += "Close " + path
-        console.log("Close " + path);
-        this.port2 = undefined;
+    if (this.port2 !== undefined) {
+      if (this.port2.isOpen) {
+        this.port2.close();
+        this.consoleHTML = "Close " + this.port2.path
+        this.port1 = undefined;
       }
-      port.destroy();
     }
   }
 
 
+  sendDataOnPort (port: (SerialPort.SerialPort | undefined), type: DataType, arr: ArrayBuffer) {
+    let arrbuf : ArrayBuffer;
+    let dataview4arrbuf : DataView;
+    let idx : number = 0;
+    arrbuf = new ArrayBuffer(1 + 2 + arr.byteLength);
+    dataview4arrbuf = new DataView(arrbuf);
+    dataview4arrbuf.setUint8(0, type);
+    dataview4arrbuf.setUint16(1, arr.byteLength);
+    idx = 3;
+    (new Uint8Array(arr)).forEach(n => {
+      dataview4arrbuf.setUint8(idx, n);
+      idx++;
+    });
+    if (port !== undefined) {
+      port.write(dataview4arrbuf, undefined);
+      this.consoleHTML = "Send to Bob ";
+      this.consoleHTML = "[" + type + ", size " + DataTypeStrings[type] + " high, size " + DataTypeStrings[type] + " low, " + DataTypeStrings[type] + "...]";
+      this.consoleHTML = JSON.stringify(new Buffer(arrbuf));
+    }
+  }
+
   generateKeyDH_Part1 () {
     
-    //const dhg = CryptoJS.createDiffieHellmanGroup('modp1');
     this.dh1 = CryptoJS.createDiffieHellman(128, 'sd2me');
     const prime : ArrayBuffer = this.dh1.getPrime();
     const primelen : number = prime.byteLength;
     const generator : ArrayBuffer = this.dh1.getGenerator();
     const generatorlen : number = generator.byteLength;
     
-    //const dh = CryptoJS.createDiffieHellman(prime, 'hex', generator, 'hex');
     const publicKeyA : ArrayBuffer = this.dh1.generateKeys();
-    const privateKeyA : ArrayBuffer = this.dh1.getPrivateKey();
     const publicKeyAlen : number = publicKeyA.byteLength;
-
-    /*
-    console.log(JSON.stringify(prime));
-    console.log(JSON.stringify(generator));
-    console.log(JSON.stringify(publicKeyA));
-    */
-
-    let arrbuf : ArrayBuffer = new ArrayBuffer(2 + 2 + 2 + primelen + generatorlen + publicKeyAlen);
-    let dataview4arrbuf : DataView = new DataView(arrbuf);
-    let idx: number = 0;
-    dataview4arrbuf.setUint16(idx, primelen);
-    idx += 2;
-    dataview4arrbuf.setUint16(idx, generatorlen);
-    idx += 2;
-    dataview4arrbuf.setUint16(idx, publicKeyAlen);
-    idx += 2;
-    (new Uint8Array(prime)).forEach(n => {
-      dataview4arrbuf.setUint8(idx, n);
-      idx++;
-    });
-    (new Uint8Array(generator)).forEach(n => {
-      dataview4arrbuf.setUint8(idx, n);
-      idx++;
-    });
-    (new Uint8Array(publicKeyA)).forEach(n => {
-      dataview4arrbuf.setUint8(idx, n);
-      idx++;
-    });
-    this.port1?.write(dataview4arrbuf, undefined);
-
-    /*
-    const prime = CryptoJS.DH.getPrime(1024); // Using a 1024-bit prime for demonstration
-    const generator = CryptoJS.DH.getGenerator(prime);
-    const privateKeyA = CryptoJS.DH.rand(prime); // Your secret private value
-    const publicKeyA = CryptoJS.DH.getPublicKey(prime, generator, privateKeyA); // Your public value to share
-    */
+    const privateKeyA : ArrayBuffer = this.dh1.getPrivateKey();
+    
+    this.consoleHTML = "&nbsp;&nbsp;&nbsp;<u><b>Alice</b></u>";
+    
+    this.sendDataOnPort(this.port1, DataType.PRIME, prime);
+    this.sendDataOnPort(this.port1, DataType.GENERATOR, generator);
+    this.sendDataOnPort(this.port1, DataType.PUBLIC_KEY, publicKeyA);
   }
 
 }

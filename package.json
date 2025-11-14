@@ -63,6 +63,7 @@
     "@types/serialport": "8.0.5",
     "crypto-browserify": "3.12.1",
     "cryptojs": "2.5.3",
+    "ngx-webstorage": "19.0.1",
     "os-browserify": "0.3.0",
     "path-browserify": "1.0.1",
     "rxjs": "7.8.1",

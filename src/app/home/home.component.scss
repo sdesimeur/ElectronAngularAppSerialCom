@@ -13,12 +13,21 @@
 
 .container div {
   //background-color: #f1f1f1;
-  width: 50%;
   margin: 5px;
   padding: 5px;
   //font-size: 30px;
 }
 
+.container div.premier {
+  width: 20%;
+}
+.container div.deuxieme {
+  width: 80%;
+}
+
+.container div select {
+  width: 100%;
+}
 .container div.console {
     display: flex;
     background-color: #000000;
