@@ -164,8 +164,12 @@ export class HomeComponent implements OnInit, OnDestroy {
               this.consoleHTML = JSON.stringify(sharedSecret);
             }
             dataview4arrbuf = new DataView(this.serialPort1BufferReceived);
-            type = dataview4arrbuf.getUint8(0);
-            len = dataview4arrbuf.getUint16(1);
+            if (dataview4arrbuf.byteLength < 3) {
+              len = 0x10000;
+            } else {
+              type = dataview4arrbuf.getUint8(0);
+              len = dataview4arrbuf.getUint16(1);
+            }
           }
         }
       }
@@ -234,8 +238,12 @@ export class HomeComponent implements OnInit, OnDestroy {
               this.sendDataOnPort(this.port2, DataType.PUBLIC_KEY, publicKeyB);
             }
             dataview4arrbuf = new DataView(this.serialPort2BufferReceived);
-            type = dataview4arrbuf.getUint8(0);
-            len = dataview4arrbuf.getUint16(1);
+            if (dataview4arrbuf.byteLength < 3) {
+              len = 0x10000;
+            } else {
+              type = dataview4arrbuf.getUint8(0);
+              len = dataview4arrbuf.getUint16(1);
+            }
           }
         }
       }
