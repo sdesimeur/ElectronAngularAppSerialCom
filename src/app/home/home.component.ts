@@ -8,6 +8,7 @@ import { FormsModule } from '@angular/forms';
 import { CommonModule } from '@angular/common';
 import { DomSanitizer, SafeHtml } from '@angular/platform-browser';
 import { LocalStorageService } from 'ngx-webstorage';
+import { encode } from 'punycode';
 
 //const CryptoJS = require('crypto-browserify');
 const CryptoJS_DH = require('diffie-hellman/browser');
@@ -16,6 +17,8 @@ enum DataType {
   PRIME = 0,
   GENERATOR = 1,
   PUBLIC_KEY = 2,
+  INITIAL_VECTOR = 3,
+  ENCRYPTED_DATAS_WITH_SHAREDKEY = 4,
 }
 
 /*
@@ -24,7 +27,7 @@ Alice speak to Bob
 
 */
 
-const DataTypeStrings: Array<string> = ["PRIME", "GENERATOR", "PUBLIC_KEY"];
+const DataTypeStrings: Array<string> = ["PRIME", "GENERATOR", "PUBLIC_KEY", "INITIAL_VECTOR", "ENCRYPTED_DATAS_WITH_SHAREDKEY"];
 
 @Component({
   selector: 'app-home',
@@ -105,11 +108,11 @@ export class HomeComponent implements OnInit, OnDestroy {
   }
 
   resetSerialPortB() {
-    this.serialportBBufferReceived = new ArrayBuffer(0 , {maxByteLength : 1024 * 1024});
+    this.serialportBBufferReceived = new ArrayBuffer(0);
   }
   
   resetSerialPortA() {
-    this.serialportABufferReceived = new ArrayBuffer(0 , {maxByteLength : 1024 * 1024});
+    this.serialportABufferReceived = new ArrayBuffer(0);
   }
 
   resetSerialPorts() {
@@ -146,7 +149,7 @@ export class HomeComponent implements OnInit, OnDestroy {
       if (this.serialportABufferReceived !== undefined) {
         let publicKeyB : (ArrayBuffer | undefined) = undefined;
         let actualLength: number = this.serialportABufferReceived.byteLength;
-        this.serialportABufferReceived.resize(actualLength + d.byteLength);
+        this.serialportABufferReceived = this.serialportABufferReceived.transfer(actualLength + d.byteLength);
         let uint8arr : Uint8Array = new Uint8Array(this.serialportABufferReceived);
         uint8arr.set(d, actualLength);
         let dataview4arrbuf : DataView = new DataView(this.serialportABufferReceived);
@@ -154,7 +157,6 @@ export class HomeComponent implements OnInit, OnDestroy {
           let type = dataview4arrbuf.getUint8(0);
           let len = dataview4arrbuf.getUint16(1);
           while (this.serialportABufferReceived.byteLength >= (3 + len)) {
-            this.consoleHTML = "&nbsp;&nbsp;&nbsp;<u><b>Alice</b></u>";
             const arr: ArrayBuffer = this.serialportABufferReceived.slice(3, 3 + len);
             switch (type) {
               case DataType.PRIME:
@@ -169,8 +171,9 @@ export class HomeComponent implements OnInit, OnDestroy {
             if (publicKeyB !== undefined) {
               const publicKeyBUint8: Uint8Array = new Uint8Array(publicKeyB);
               this.sharedSecretA = this.dhA.computeSecret(publicKeyBUint8);
-              this.consoleHTML = "sharedSecret calculate by Alice with publicKeyBob :";
+              this.consoleHTML = "&nbsp;&nbsp;<b><u>Alice</u></b> : sharedSecret calculate with publicKeyBob :";
               this.consoleHTML = JSON.stringify(this.sharedSecretA);
+              publicKeyB = undefined;
             }
             dataview4arrbuf = new DataView(this.serialportABufferReceived);
             if (dataview4arrbuf.byteLength < 3) {
@@ -206,11 +209,13 @@ export class HomeComponent implements OnInit, OnDestroy {
     let prime: (ArrayBuffer | undefined) = undefined;
     let generator: (ArrayBuffer | undefined) = undefined;
     let publicKeyA: (ArrayBuffer | undefined) = undefined;
+    let initialVector: (ArrayBuffer | undefined) = undefined;
+    let encryptedDatas: (ArrayBuffer | undefined) = undefined;
 
     this.portB.on("data", (d: Buffer) => {
       if (this.serialportBBufferReceived !== undefined) {
         let actualLength: number = this.serialportBBufferReceived.byteLength;
-        this.serialportBBufferReceived.resize(actualLength + d.byteLength);
+        this.serialportBBufferReceived = this.serialportBBufferReceived.transfer(actualLength + d.byteLength);
         let uint8arr : Uint8Array = new Uint8Array(this.serialportBBufferReceived);
         uint8arr.set(d, actualLength);
         let dataview4arrbuf : DataView = new DataView(this.serialportBBufferReceived);
@@ -229,22 +234,34 @@ export class HomeComponent implements OnInit, OnDestroy {
               case DataType.PUBLIC_KEY:
                 publicKeyA = arr;
                 break;
+              case DataType.ENCRYPTED_DATAS_WITH_SHAREDKEY:
+                encryptedDatas = arr;
+                break;
+              case DataType.INITIAL_VECTOR:
+                initialVector = arr;
+                break;
             }
             this.serialportBBufferReceived = this.serialportBBufferReceived.slice(3 + len);
-            if (this.dhB === undefined && prime !== undefined && generator !== undefined) {
+            if (encryptedDatas !== undefined && initialVector !== undefined) {
+              if (this.sharedSecretA !== undefined) {
+                this.DecryptDatas(this.sharedSecretA, initialVector, encryptedDatas);
+              }
+              initialVector = undefined;
+              encryptedDatas = undefined;
+            } else if (this.dhB === undefined && prime !== undefined && generator !== undefined) {
               this.dhB = CryptoJS_DH.createDiffieHellman(prime, generator);
-            }
-            if (this.dhB !== undefined && publicKeyA !== undefined) {
-              this.consoleHTML = "&nbsp;&nbsp;&nbsp;<u><b>Bob</b></u>";
+              prime = undefined;
+              generator = undefined;
+            } else if (this.dhB !== undefined && publicKeyA !== undefined) {
               const publicKeyB : ArrayBuffer = this.dhB.generateKeys();
               const publicKeyAUint8: Uint8Array = new Uint8Array(publicKeyA);
               
               this.sharedSecretB = this.dhB.computeSecret(publicKeyAUint8);
-              this.consoleHTML = "sharedSecret calculate by Bob with publicKeyAlice :";
+              this.consoleHTML = "&nbsp;&nbsp;<b><u>Bob</u></b> : sharedSecret calculate with publicKeyAlice :";
               this.consoleHTML = JSON.stringify(this.sharedSecretB);
               
-              this.consoleHTML = "Send to Alice (publicKeyBob)";
               this.sendDataOnPort(this.portB, DataType.PUBLIC_KEY, publicKeyB);
+              publicKeyA = undefined;
             }
             dataview4arrbuf = new DataView(this.serialportBBufferReceived);
             if (dataview4arrbuf.byteLength < 3) {
@@ -298,7 +315,11 @@ export class HomeComponent implements OnInit, OnDestroy {
     });
     if (port !== undefined) {
       port.write(dataview4arrbuf, undefined);
-      this.consoleHTML = "Send to Bob ";
+      if (port === this.portA) {
+        this.consoleHTML = "&nbsp;&nbsp;&nbsp;<u><b>Alice</b></u> : Send to Bob";
+      } else {
+        this.consoleHTML = "&nbsp;&nbsp;&nbsp;<u><b>Bob</b></u> : Send to Alice";
+      }
       this.consoleHTML = "[" + type + ", size " + DataTypeStrings[type] + " high, size " + DataTypeStrings[type] + " low, " + DataTypeStrings[type] + "...]";
       this.consoleHTML = JSON.stringify(new Buffer(arrbuf));
     }
@@ -316,22 +337,55 @@ export class HomeComponent implements OnInit, OnDestroy {
     const publicKeyAlen : number = publicKeyA.byteLength;
     const privateKeyA : ArrayBuffer = this.dhA.getPrivateKey();
     
-    this.consoleHTML = "&nbsp;&nbsp;&nbsp;<u><b>Alice</b></u>";
-    
     this.sendDataOnPort(this.portA, DataType.PRIME, prime);
     this.sendDataOnPort(this.portA, DataType.GENERATOR, generator);
     this.sendDataOnPort(this.portA, DataType.PUBLIC_KEY, publicKeyA);
   }
 
-  aliceSendEncryptedDatas () {
+  async aliceSendEncryptedDatas () {
     /*
     https://medium.com/@piyalidas.it/angular-encryption-and-decryption-using-cryptojs-a123505c67af
     */
-    let testText: string = "C'est AtralTech qui se fait encoder";
-    let testTextWordArray: CryptoJS.lib.WordArray = CryptoJS.lib.WordArray.create(this.sharedSecretA);
-    let encryptedTestText: CryptoJS.lib.CipherParams = CryptoJS.AES.encrypt(testText, testTextWordArray);
-    this.consoleHTML = JSON.stringify(encryptedTestText);
-    this.consoleHTML = JSON.stringify(encryptedTestText.ciphertext);
+    if (this.sharedSecretA !== undefined) {
+      let testText: string = "C'est AtralTech qui se fait encoder puis décoder";
+      const enc = new TextEncoder();
+      const encoded= enc.encode(testText);
+      //let testTextWordArray: CryptoJS.lib.WordArray = CryptoJS.lib.WordArray.create(testText);
+      const iv = window.crypto.getRandomValues(new Uint8Array(16));
+      const key : CryptoKey = await window.crypto.subtle.importKey("raw", this.sharedSecretA, "AES-CBC", false, ["decrypt", "encrypt"]);
+      let encryptedTestText: ArrayBuffer = await window.crypto.subtle.encrypt({
+          name: "AES-CBC",
+          iv: iv
+        },
+        key,
+        encoded
+      );
+      this.consoleHTML = "Clear text in Uint8Array";
+      this.consoleHTML = JSON.stringify(encoded.buffer);
+      this.consoleHTML = "Encrypted text in Uint8Array";
+      this.consoleHTML = JSON.stringify(encryptedTestText);
+      this.sendDataOnPort(this.portA, DataType.INITIAL_VECTOR , iv.buffer);
+      this.sendDataOnPort(this.portA, DataType.ENCRYPTED_DATAS_WITH_SHAREDKEY ,encryptedTestText);
+      
+      //this.consoleHTML = JSON.stringify(encryptedTestText);
+    }
   }
 
+  async DecryptDatas(shareKey: ArrayBuffer, initialVector: ArrayBuffer, encryptedDatas: ArrayBuffer) {
+    if (this.sharedSecretB !== undefined) {
+      const enc = new TextDecoder();
+      //let testTextWordArray: CryptoJS.lib.WordArray = CryptoJS.lib.WordArray.create(testText);
+      const key : CryptoKey = await window.crypto.subtle.importKey("raw", shareKey, "AES-CBC", false, ["decrypt", "encrypt"]);
+      let decryptedTestText: ArrayBuffer = await window.crypto.subtle.decrypt({
+          name: "AES-CBC",
+          iv: initialVector
+        },
+        key,
+        encryptedDatas
+      );
+      this.consoleHTML = enc.decode(decryptedTestText);
+      //this.consoleHTML = JSON.stringify(encryptedTestText);
+    }
+  }
+            
 }
