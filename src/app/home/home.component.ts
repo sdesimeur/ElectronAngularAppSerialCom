@@ -13,21 +13,21 @@ import { encode } from 'punycode';
 //const CryptoJS = require('crypto-browserify');
 const CryptoJS_DH = require('diffie-hellman/browser');
 
-enum DataType {
-  PRIME = 0,
-  GENERATOR = 1,
-  PUBLIC_KEY = 2,
-  INITIAL_VECTOR = 3,
-  ENCRYPTED_DATAS_WITH_SHAREDKEY = 4,
-}
-
 /*
 
 Alice speak to Bob
 
 */
 
-const DataTypeStrings: Array<string> = ["PRIME", "GENERATOR", "PUBLIC_KEY", "INITIAL_VECTOR", "ENCRYPTED_DATAS_WITH_SHAREDKEY"];
+
+enum DataType {
+  PRIME = 0,
+  GENERATOR = 1,
+  PUBLIC_KEY = 2,
+  INITIAL_VECTOR = 3,
+  ENCRYPTED_DATAS_WITH_SHAREDKEY = 4,
+  ENCRYPTED_SYSTEMKEY_WITH_SHAREDKEY = 5,
+}
 
 @Component({
   selector: 'app-home',
@@ -320,7 +320,8 @@ export class HomeComponent implements OnInit, OnDestroy {
       } else {
         this.consoleHTML = "&nbsp;&nbsp;&nbsp;<u><b>Bob</b></u> : Send to Alice";
       }
-      this.consoleHTML = "[" + type + ", size " + DataTypeStrings[type] + " high, size " + DataTypeStrings[type] + " low, " + DataTypeStrings[type] + "...]";
+      const typeText : string = DataType[type];
+      this.consoleHTML = "[" + type + ", size " + typeText + " high, size " + typeText + " low, " + typeText + "...]";
       this.consoleHTML = JSON.stringify(new Buffer(arrbuf));
     }
   }
@@ -366,7 +367,6 @@ export class HomeComponent implements OnInit, OnDestroy {
       this.consoleHTML = JSON.stringify(encryptedTestText);
       this.sendDataOnPort(this.portA, DataType.INITIAL_VECTOR , iv.buffer);
       this.sendDataOnPort(this.portA, DataType.ENCRYPTED_DATAS_WITH_SHAREDKEY ,encryptedTestText);
-      
       //this.consoleHTML = JSON.stringify(encryptedTestText);
     }
   }
