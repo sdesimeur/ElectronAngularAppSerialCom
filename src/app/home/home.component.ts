@@ -22,11 +22,11 @@ Alice speak to Bob
 
 enum DataType {
   PRIME = 0,
-  GENERATOR = 1,
-  PUBLIC_KEY = 2,
-  INITIAL_VECTOR = 3,
-  ENCRYPTED_DATAS_WITH_SHAREDKEY = 4,
-  ENCRYPTED_SYSTEMKEY_WITH_SHAREDKEY = 5,
+  GENERATOR,
+  PUBLIC_KEY,
+  INITIAL_VECTOR,
+  ENCRYPTED_DATAS_WITH_SHAREDKEY,
+  ENCRYPTED_SYSTEMKEY_WITH_SHAREDKEY,
 }
 
 @Component({
@@ -64,11 +64,13 @@ export class HomeComponent implements OnInit, OnDestroy {
   portA: (SerialPort.SerialPort | undefined) = undefined;
   portB: (SerialPort.SerialPort | undefined) = undefined;
   //serialPort: SerialPort.SerialPort;
-  serialPortIdA: number = -1;
-  serialPortIdB: number = -1;
+  serialPortIdA: number = 0;
+  serialPortIdB: number = 0;
   serialPorts: Array<PortInfo> = Array<PortInfo>();
   dhA: (typeof CryptoJS_DH.DiffieHellman | undefined) = undefined;
   dhB: (typeof CryptoJS_DH.DiffieHellman | undefined) = undefined;
+
+  systemKey: (ArrayBuffer| undefined) = undefined;
 
   sharedSecretA: (ArrayBuffer| undefined) = undefined;
   sharedSecretB: (ArrayBuffer| undefined) = undefined;
@@ -90,6 +92,16 @@ export class HomeComponent implements OnInit, OnDestroy {
     console.log('HomeComponent INIT');
     let portAPath  = this.localStorage.retrieve("lastportAPath");
     let portBPath  = this.localStorage.retrieve("lastportBPath");
+    let tmp: PortInfo = {
+      path: "Aucun port",
+      manufacturer: undefined,
+      serialNumber: undefined,
+      pnpId: undefined,
+      locationId: undefined,
+      productId: undefined,
+      vendorId: undefined,
+    };
+    this.serialPorts.push(tmp);
     SerialPort.SerialPort.list().then(ports => {
       ports.forEach(e => {
         if ((e.pnpId !== undefined && e.pnpId.search(/uart/i) !== -1) || e.path.startsWith("COM")) {
@@ -128,13 +140,17 @@ export class HomeComponent implements OnInit, OnDestroy {
   }
 
   startSerialPortA () {
-    if (this.serialPortIdA === -1) {
-      return;
-    }
     if (this.serialPorts[this.serialPortIdA] === undefined) {
       return;
     }
     if (this.portA !== undefined) {
+      if (this.portA.path === this.serialPorts[this.serialPortIdA].path) {
+        return;
+      } else {
+        this.portA.close();
+      }
+    }
+    if (this.serialPortIdB === 0) {
       return;
     }
     this.dhA = undefined;
@@ -189,13 +205,17 @@ export class HomeComponent implements OnInit, OnDestroy {
   }
 
   startSerialPortB () {
-    if (this.serialPortIdB === -1) {
-      return;
-    }
     if (this.serialPorts[this.serialPortIdB] === undefined) {
       return;
     }
     if (this.portB !== undefined) {
+      if (this.portB.path === this.serialPorts[this.serialPortIdB].path) {
+        return;
+      } else {
+        this.portB.close();
+      }
+    }
+    if (this.serialPortIdB === 0) {
       return;
     }
     this.dhB = undefined;
@@ -210,7 +230,7 @@ export class HomeComponent implements OnInit, OnDestroy {
     let generator: (ArrayBuffer | undefined) = undefined;
     let publicKeyA: (ArrayBuffer | undefined) = undefined;
     let initialVector: (ArrayBuffer | undefined) = undefined;
-    let encryptedDatas: (ArrayBuffer | undefined) = undefined;
+    let encryptedSystemKeyWithSharedKey: (ArrayBuffer | undefined) = undefined;
 
     this.portB.on("data", (d: Buffer) => {
       if (this.serialportBBufferReceived !== undefined) {
@@ -234,20 +254,20 @@ export class HomeComponent implements OnInit, OnDestroy {
               case DataType.PUBLIC_KEY:
                 publicKeyA = arr;
                 break;
-              case DataType.ENCRYPTED_DATAS_WITH_SHAREDKEY:
-                encryptedDatas = arr;
+              case DataType.ENCRYPTED_SYSTEMKEY_WITH_SHAREDKEY:
+                encryptedSystemKeyWithSharedKey = arr;
                 break;
               case DataType.INITIAL_VECTOR:
                 initialVector = arr;
                 break;
             }
             this.serialportBBufferReceived = this.serialportBBufferReceived.slice(3 + len);
-            if (encryptedDatas !== undefined && initialVector !== undefined) {
+            if (encryptedSystemKeyWithSharedKey !== undefined && initialVector !== undefined) {
               if (this.sharedSecretA !== undefined) {
-                this.DecryptDatas(this.sharedSecretA, initialVector, encryptedDatas);
+                this.systemKey = this.DecryptDatas(this.sharedSecretA, initialVector, encryptedSystemKeyWithSharedKey);
               }
               initialVector = undefined;
-              encryptedDatas = undefined;
+              encryptedSystemKeyWithSharedKey = undefined;
             } else if (this.dhB === undefined && prime !== undefined && generator !== undefined) {
               this.dhB = CryptoJS_DH.createDiffieHellman(prime, generator);
               prime = undefined;
@@ -348,42 +368,45 @@ export class HomeComponent implements OnInit, OnDestroy {
     https://medium.com/@piyalidas.it/angular-encryption-and-decryption-using-cryptojs-a123505c67af
     */
     if (this.sharedSecretA !== undefined) {
-      let testText: string = "C'est AtralTech qui se fait encoder puis décoder";
+      /*let testText: string = "C'est AtralTech qui se fait encoder puis décoder";
       const enc = new TextEncoder();
-      const encoded= enc.encode(testText);
+      const encoded= enc.encode(testText);*/
       //let testTextWordArray: CryptoJS.lib.WordArray = CryptoJS.lib.WordArray.create(testText);
       const iv = window.crypto.getRandomValues(new Uint8Array(16));
       const key : CryptoKey = await window.crypto.subtle.importKey("raw", this.sharedSecretA, "AES-CBC", false, ["decrypt", "encrypt"]);
-      let encryptedTestText: ArrayBuffer = await window.crypto.subtle.encrypt({
+      const systemKey = window.crypto.getRandomValues(new Uint8Array(128/8));
+      let encryptedSystemKey: ArrayBuffer = await window.crypto.subtle.encrypt({
           name: "AES-CBC",
           iv: iv
         },
         key,
-        encoded
+        systemKey
       );
       this.consoleHTML = "Clear text in Uint8Array";
-      this.consoleHTML = JSON.stringify(encoded.buffer);
+      this.consoleHTML = JSON.stringify(systemKey.buffer);
       this.consoleHTML = "Encrypted text in Uint8Array";
-      this.consoleHTML = JSON.stringify(encryptedTestText);
+      this.consoleHTML = JSON.stringify(encryptedSystemKey);
       this.sendDataOnPort(this.portA, DataType.INITIAL_VECTOR , iv.buffer);
-      this.sendDataOnPort(this.portA, DataType.ENCRYPTED_DATAS_WITH_SHAREDKEY ,encryptedTestText);
+      this.sendDataOnPort(this.portA, DataType.ENCRYPTED_SYSTEMKEY_WITH_SHAREDKEY ,encryptedSystemKey);
       //this.consoleHTML = JSON.stringify(encryptedTestText);
     }
   }
 
-  async DecryptDatas(shareKey: ArrayBuffer, initialVector: ArrayBuffer, encryptedDatas: ArrayBuffer) {
+  async DecryptDatas(key: ArrayBuffer, initialVector: ArrayBuffer, encryptedDatas: ArrayBuffer) : ArrayBuffer {
     if (this.sharedSecretB !== undefined) {
       const enc = new TextDecoder();
       //let testTextWordArray: CryptoJS.lib.WordArray = CryptoJS.lib.WordArray.create(testText);
-      const key : CryptoKey = await window.crypto.subtle.importKey("raw", shareKey, "AES-CBC", false, ["decrypt", "encrypt"]);
+      const keyImported : CryptoKey = await window.crypto.subtle.importKey("raw", key, "AES-CBC", false, ["decrypt", "encrypt"]);
       let decryptedTestText: ArrayBuffer = await window.crypto.subtle.decrypt({
           name: "AES-CBC",
           iv: initialVector
         },
-        key,
+        keyImported,
         encryptedDatas
       );
-      this.consoleHTML = enc.decode(decryptedTestText);
+      //this.consoleHTML = enc.decode(decryptedTestText);
+
+      return decryptedTestText;
       //this.consoleHTML = JSON.stringify(encryptedTestText);
     }
   }
