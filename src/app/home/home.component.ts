@@ -21,7 +21,8 @@ Alice speak to Bob
 
 
 enum DataType {
-  PRIME = 0,
+  NONE = 0,
+  PRIME = 1,
   GENERATOR,
   PUBLIC_KEY,
   INITIAL_VECTOR,
@@ -150,7 +151,7 @@ export class HomeComponent implements OnInit, OnDestroy {
         this.portA.close();
       }
     }
-    if (this.serialPortIdB === 0) {
+    if (this.serialPortIdA === 0) {
       return;
     }
     this.dhA = undefined;
