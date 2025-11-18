@@ -172,7 +172,7 @@ export class HomeComponent implements OnInit, OnDestroy {
         if (dataview4arrbuf.byteLength > 3) {
           let type = dataview4arrbuf.getUint8(0);
           let len = dataview4arrbuf.getUint16(1);
-          while (this.serialportABufferReceived.byteLength >= (3 + len)) {
+          while (this.serialportABufferReceived.byteLength >= (4 + len)) {
             const arr: ArrayBuffer = this.serialportABufferReceived.slice(3, 3 + len);
             switch (type) {
               case DataType.PRIME:
@@ -183,7 +183,7 @@ export class HomeComponent implements OnInit, OnDestroy {
                 publicKeyB = arr;
                 break;
             }
-            this.serialportABufferReceived = this.serialportABufferReceived.slice(3 + len);
+            this.serialportABufferReceived = this.serialportABufferReceived.slice(4 + len);
             if (publicKeyB !== undefined) {
               const publicKeyBUint8: Uint8Array = new Uint8Array(publicKeyB);
               this.sharedSecretA = this.dhA.computeSecret(publicKeyBUint8);
@@ -232,7 +232,7 @@ export class HomeComponent implements OnInit, OnDestroy {
     let initialVector: (ArrayBuffer | undefined) = undefined;
     let encryptedSystemKeyWithSharedKey: (ArrayBuffer | undefined) = undefined;
 
-    this.portB.on("data", (d: Buffer) => {
+    this.portB.on("data", async (d: Buffer) => {
       if (this.serialportBBufferReceived !== undefined) {
         let actualLength: number = this.serialportBBufferReceived.byteLength;
         this.serialportBBufferReceived = this.serialportBBufferReceived.transfer(actualLength + d.byteLength);
@@ -242,7 +242,7 @@ export class HomeComponent implements OnInit, OnDestroy {
         if (dataview4arrbuf.byteLength > 3) {
           let type: DataType = dataview4arrbuf.getUint8(0) as DataType;
           let len = dataview4arrbuf.getUint16(1);
-          while (this.serialportBBufferReceived.byteLength >= (3 + len)) {
+          while (this.serialportBBufferReceived.byteLength >= (4 + len)) {
             const arr: ArrayBuffer = this.serialportBBufferReceived.slice(3, 3 + len);
             switch (type) {
               case DataType.PRIME:
@@ -261,10 +261,15 @@ export class HomeComponent implements OnInit, OnDestroy {
                 initialVector = arr;
                 break;
             }
-            this.serialportBBufferReceived = this.serialportBBufferReceived.slice(3 + len);
+            this.serialportBBufferReceived = this.serialportBBufferReceived.slice(4 + len);
             if (encryptedSystemKeyWithSharedKey !== undefined && initialVector !== undefined) {
               if (this.sharedSecretA !== undefined) {
-                this.systemKey = this.DecryptDatas(this.sharedSecretA, initialVector, encryptedSystemKeyWithSharedKey);
+                this.systemKey = await this.DecryptDatas(this.sharedSecretA, initialVector, encryptedSystemKeyWithSharedKey);
+                this.consoleHTML = "&nbsp;&nbsp;<b><u>Bob</u></b> : decrypt systemKey sent by Alice";
+                if (this.systemKey !== undefined)
+                {
+                  this.consoleHTML = JSON.stringify(new Buffer(this.systemKey));
+                }
               }
               initialVector = undefined;
               encryptedSystemKeyWithSharedKey = undefined;
@@ -324,7 +329,7 @@ export class HomeComponent implements OnInit, OnDestroy {
     let arrbuf : ArrayBuffer;
     let dataview4arrbuf : DataView;
     let idx : number = 0;
-    arrbuf = new ArrayBuffer(1 + 2 + arr.byteLength);
+    arrbuf = new ArrayBuffer(1 + 2 + arr.byteLength + 1);
     dataview4arrbuf = new DataView(arrbuf);
     dataview4arrbuf.setUint8(0, type);
     dataview4arrbuf.setUint16(1, arr.byteLength);
@@ -333,6 +338,7 @@ export class HomeComponent implements OnInit, OnDestroy {
       dataview4arrbuf.setUint8(idx, n);
       idx++;
     });
+    dataview4arrbuf.setUint8(idx, 0xAA);
     if (port !== undefined) {
       port.write(dataview4arrbuf, undefined);
       if (port === this.portA) {
@@ -341,7 +347,7 @@ export class HomeComponent implements OnInit, OnDestroy {
         this.consoleHTML = "&nbsp;&nbsp;&nbsp;<u><b>Bob</b></u> : Send to Alice";
       }
       const typeText : string = DataType[type];
-      this.consoleHTML = "[" + type + ", size " + typeText + " high, size " + typeText + " low, " + typeText + "...]";
+      this.consoleHTML = "[" + type + ", size " + typeText + " high, size " + typeText + " low, " + typeText + "..., 170]";
       this.consoleHTML = JSON.stringify(new Buffer(arrbuf));
     }
   }
@@ -363,7 +369,7 @@ export class HomeComponent implements OnInit, OnDestroy {
     this.sendDataOnPort(this.portA, DataType.PUBLIC_KEY, publicKeyA);
   }
 
-  async aliceSendEncryptedDatas () {
+  async aliceSendEncryptedSystemKey() {
     /*
     https://medium.com/@piyalidas.it/angular-encryption-and-decryption-using-cryptojs-a123505c67af
     */
@@ -374,25 +380,26 @@ export class HomeComponent implements OnInit, OnDestroy {
       //let testTextWordArray: CryptoJS.lib.WordArray = CryptoJS.lib.WordArray.create(testText);
       const iv = window.crypto.getRandomValues(new Uint8Array(16));
       const key : CryptoKey = await window.crypto.subtle.importKey("raw", this.sharedSecretA, "AES-CBC", false, ["decrypt", "encrypt"]);
-      const systemKey = window.crypto.getRandomValues(new Uint8Array(128/8));
+      let systemKey: ArrayBuffer = new ArrayBuffer(128/8);
+      const systemKeyRandom = window.crypto.getRandomValues(new Uint8Array(systemKey));
       let encryptedSystemKey: ArrayBuffer = await window.crypto.subtle.encrypt({
           name: "AES-CBC",
           iv: iv
         },
         key,
-        systemKey
+        systemKeyRandom
       );
       this.consoleHTML = "Clear text in Uint8Array";
-      this.consoleHTML = JSON.stringify(systemKey.buffer);
+      this.consoleHTML = JSON.stringify(new Buffer(systemKeyRandom));
       this.consoleHTML = "Encrypted text in Uint8Array";
-      this.consoleHTML = JSON.stringify(encryptedSystemKey);
+      this.consoleHTML = JSON.stringify(new Buffer(encryptedSystemKey));
       this.sendDataOnPort(this.portA, DataType.INITIAL_VECTOR , iv.buffer);
       this.sendDataOnPort(this.portA, DataType.ENCRYPTED_SYSTEMKEY_WITH_SHAREDKEY ,encryptedSystemKey);
       //this.consoleHTML = JSON.stringify(encryptedTestText);
     }
   }
 
-  async DecryptDatas(key: ArrayBuffer, initialVector: ArrayBuffer, encryptedDatas: ArrayBuffer) : ArrayBuffer {
+  async DecryptDatas(key: ArrayBuffer, initialVector: ArrayBuffer, encryptedDatas: ArrayBuffer) : Promise<ArrayBuffer|undefined> {
     if (this.sharedSecretB !== undefined) {
       const enc = new TextDecoder();
       //let testTextWordArray: CryptoJS.lib.WordArray = CryptoJS.lib.WordArray.create(testText);
@@ -409,6 +416,7 @@ export class HomeComponent implements OnInit, OnDestroy {
       return decryptedTestText;
       //this.consoleHTML = JSON.stringify(encryptedTestText);
     }
+    return undefined;
   }
             
 }
