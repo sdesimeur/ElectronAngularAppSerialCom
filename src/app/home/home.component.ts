@@ -21,7 +21,8 @@ Alice speak to Bob
 
 
 enum DataType {
-  PRIME = 0,
+  NONE = 0,
+  PRIME = 1,
   GENERATOR,
   PUBLIC_KEY,
   INITIAL_VECTOR,
@@ -103,8 +104,9 @@ export class HomeComponent implements OnInit, OnDestroy {
     };
     this.serialPorts.push(tmp);
     SerialPort.SerialPort.list().then(ports => {
+      console.log(JSON.stringify(ports, null, 4));
       ports.forEach(e => {
-        if ((e.pnpId !== undefined && e.pnpId.search(/uart/i) !== -1) || e.path.startsWith("COM")) {
+        if ((e.pnpId !== undefined && e.pnpId.search(/FTDI/i) !== -1) || e.path.startsWith("COM")) {
           this.serialPorts.push(e);
           if (e.path === portAPath) {
             this.serialPortIdA = this.serialPorts.length - 1;
@@ -150,7 +152,7 @@ export class HomeComponent implements OnInit, OnDestroy {
         this.portA.close();
       }
     }
-    if (this.serialPortIdB === 0) {
+    if (this.serialPortIdA === 0) {
       return;
     }
     this.dhA = undefined;
@@ -169,11 +171,11 @@ export class HomeComponent implements OnInit, OnDestroy {
         let uint8arr : Uint8Array = new Uint8Array(this.serialportABufferReceived);
         uint8arr.set(d, actualLength);
         let dataview4arrbuf : DataView = new DataView(this.serialportABufferReceived);
-        if (dataview4arrbuf.byteLength > 3) {
+        if (dataview4arrbuf.byteLength > 2) {
           let type = dataview4arrbuf.getUint8(0);
-          let len = dataview4arrbuf.getUint16(1);
-          while (this.serialportABufferReceived.byteLength >= (4 + len)) {
-            const arr: ArrayBuffer = this.serialportABufferReceived.slice(3, 3 + len);
+          let len = dataview4arrbuf.getUint8(1);
+          while (this.serialportABufferReceived.byteLength > (2 + len)) {
+            const arr: ArrayBuffer = this.serialportABufferReceived.slice(2, 2 + len);
             switch (type) {
               case DataType.PRIME:
                 break;
@@ -183,7 +185,7 @@ export class HomeComponent implements OnInit, OnDestroy {
                 publicKeyB = arr;
                 break;
             }
-            this.serialportABufferReceived = this.serialportABufferReceived.slice(4 + len);
+            this.serialportABufferReceived = this.serialportABufferReceived.slice(3 + len);
             if (publicKeyB !== undefined) {
               const publicKeyBUint8: Uint8Array = new Uint8Array(publicKeyB);
               this.sharedSecretA = this.dhA.computeSecret(publicKeyBUint8);
@@ -239,11 +241,11 @@ export class HomeComponent implements OnInit, OnDestroy {
         let uint8arr : Uint8Array = new Uint8Array(this.serialportBBufferReceived);
         uint8arr.set(d, actualLength);
         let dataview4arrbuf : DataView = new DataView(this.serialportBBufferReceived);
-        if (dataview4arrbuf.byteLength > 3) {
+        if (dataview4arrbuf.byteLength > 2) {
           let type: DataType = dataview4arrbuf.getUint8(0) as DataType;
-          let len = dataview4arrbuf.getUint16(1);
-          while (this.serialportBBufferReceived.byteLength >= (4 + len)) {
-            const arr: ArrayBuffer = this.serialportBBufferReceived.slice(3, 3 + len);
+          let len = dataview4arrbuf.getUint8(1);
+          while (this.serialportBBufferReceived.byteLength > (2 + len)) {
+            const arr: ArrayBuffer = this.serialportBBufferReceived.slice(2, 2 + len);
             switch (type) {
               case DataType.PRIME:
                 prime = arr;
@@ -261,7 +263,7 @@ export class HomeComponent implements OnInit, OnDestroy {
                 initialVector = arr;
                 break;
             }
-            this.serialportBBufferReceived = this.serialportBBufferReceived.slice(4 + len);
+            this.serialportBBufferReceived = this.serialportBBufferReceived.slice(3 + len);
             if (encryptedSystemKeyWithSharedKey !== undefined && initialVector !== undefined) {
               if (this.sharedSecretA !== undefined) {
                 this.systemKey = await this.DecryptDatas(this.sharedSecretA, initialVector, encryptedSystemKeyWithSharedKey);
@@ -329,11 +331,11 @@ export class HomeComponent implements OnInit, OnDestroy {
     let arrbuf : ArrayBuffer;
     let dataview4arrbuf : DataView;
     let idx : number = 0;
-    arrbuf = new ArrayBuffer(1 + 2 + arr.byteLength + 1);
+    arrbuf = new ArrayBuffer(1 + 1 + arr.byteLength + 1);
     dataview4arrbuf = new DataView(arrbuf);
     dataview4arrbuf.setUint8(0, type);
-    dataview4arrbuf.setUint16(1, arr.byteLength);
-    idx = 3;
+    dataview4arrbuf.setUint8(1, arr.byteLength);
+    idx = 2;
     (new Uint8Array(arr)).forEach(n => {
       dataview4arrbuf.setUint8(idx, n);
       idx++;
@@ -347,7 +349,7 @@ export class HomeComponent implements OnInit, OnDestroy {
         this.consoleHTML = "&nbsp;&nbsp;&nbsp;<u><b>Bob</b></u> : Send to Alice";
       }
       const typeText : string = DataType[type];
-      this.consoleHTML = "[" + type + ", size " + typeText + " high, size " + typeText + " low, " + typeText + "..., 170]";
+      this.consoleHTML = "[" + type + ", size " + typeText + ", " + typeText + "..., 170]";
       this.consoleHTML = JSON.stringify(new Buffer(arrbuf));
     }
   }
