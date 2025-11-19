@@ -106,7 +106,11 @@ export class HomeComponent implements OnInit, OnDestroy {
     SerialPort.SerialPort.list().then(ports => {
       console.log(JSON.stringify(ports, null, 4));
       ports.forEach(e => {
-        if ((e.pnpId !== undefined && e.pnpId.search(/FTDI/i) !== -1) || e.path.startsWith("COM")) {
+        if (e.path.startsWith("COM") || 
+        (e.pnpId !== undefined && e.pnpId.search(/FTDI/i) !== -1) || 
+        (e.pnpId !== undefined && e.pnpId.search(/TTL/i) !== -1) || 
+        (e.pnpId !== undefined && e.pnpId.search(/serial/i) !== -1) 
+      ) {
           this.serialPorts.push(e);
           if (e.path === portAPath) {
             this.serialPortIdA = this.serialPorts.length - 1;
