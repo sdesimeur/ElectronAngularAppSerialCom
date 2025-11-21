@@ -12,20 +12,19 @@ import { encode } from 'punycode';
 
 //const CryptoJS = require('crypto-browserify');
 const CryptoJS_DH = require('diffie-hellman/browser');
-
+const textEnc = new TextEncoder();
 /*
 
 Alice speak to Bob
 
 */
-
+const INITIAL_VECTOR: string = "7cb56057cb391c112e02588c74f4808e";
 
 enum DataType {
   NONE = 0,
   PRIME = 1,
   GENERATOR,
   PUBLIC_KEY,
-  INITIAL_VECTOR,
   ENCRYPTED_DATAS_WITH_SHAREDKEY,
   ENCRYPTED_SYSTEMKEY_WITH_SHAREDKEY,
 }
@@ -70,7 +69,7 @@ export class HomeComponent implements OnInit, OnDestroy {
   serialPorts: Array<PortInfo> = Array<PortInfo>();
   dhA: (typeof CryptoJS_DH.DiffieHellman | undefined) = undefined;
   dhB: (typeof CryptoJS_DH.DiffieHellman | undefined) = undefined;
-
+  initialVector: ArrayBuffer = new ArrayBuffer(16);
   systemKey: (ArrayBuffer| undefined) = undefined;
 
   sharedSecretA: (ArrayBuffer| undefined) = undefined;
@@ -82,6 +81,12 @@ export class HomeComponent implements OnInit, OnDestroy {
   constructor(private ref: ChangeDetectorRef, private sanitizer: DomSanitizer, private localStorage: LocalStorageService) {
     this.resetSerialPortA();
     this.resetSerialPortB();
+    const wa = CryptoJS.enc.Hex.parse(INITIAL_VECTOR);
+    let iv: DataView = new DataView(this.initialVector);
+    iv.setUint32(0, wa.words[0], false);
+    iv.setUint32(4, wa.words[1], false);
+    iv.setUint32(8, wa.words[2], false);
+    iv.setUint32(12, wa.words[3], false);
     //this.serialPort = window.require('serialport');
   }
 
@@ -235,7 +240,6 @@ export class HomeComponent implements OnInit, OnDestroy {
     let prime: (ArrayBuffer | undefined) = undefined;
     let generator: (ArrayBuffer | undefined) = undefined;
     let publicKeyA: (ArrayBuffer | undefined) = undefined;
-    let initialVector: (ArrayBuffer | undefined) = undefined;
     let encryptedSystemKeyWithSharedKey: (ArrayBuffer | undefined) = undefined;
 
     this.portB.on("data", async (d: Buffer) => {
@@ -263,21 +267,20 @@ export class HomeComponent implements OnInit, OnDestroy {
               case DataType.ENCRYPTED_SYSTEMKEY_WITH_SHAREDKEY:
                 encryptedSystemKeyWithSharedKey = arr;
                 break;
-              case DataType.INITIAL_VECTOR:
-                initialVector = arr;
+              default:
+                return;
                 break;
             }
             this.serialportBBufferReceived = this.serialportBBufferReceived.slice(3 + len);
-            if (encryptedSystemKeyWithSharedKey !== undefined && initialVector !== undefined) {
+            if (encryptedSystemKeyWithSharedKey !== undefined) {
               if (this.sharedSecretA !== undefined) {
-                this.systemKey = await this.DecryptDatas(this.sharedSecretA, initialVector, encryptedSystemKeyWithSharedKey);
+                this.systemKey = await this.DecryptDatas(this.sharedSecretA, encryptedSystemKeyWithSharedKey);
                 this.consoleHTML = "&nbsp;&nbsp;<b><u>Bob</u></b> : decrypt systemKey sent by Alice";
                 if (this.systemKey !== undefined)
                 {
                   this.consoleHTML = JSON.stringify(new Buffer(this.systemKey));
                 }
               }
-              initialVector = undefined;
               encryptedSystemKeyWithSharedKey = undefined;
             } else if (this.dhB === undefined && prime !== undefined && generator !== undefined) {
               this.dhB = CryptoJS_DH.createDiffieHellman(prime, generator);
@@ -384,13 +387,12 @@ export class HomeComponent implements OnInit, OnDestroy {
       const enc = new TextEncoder();
       const encoded= enc.encode(testText);*/
       //let testTextWordArray: CryptoJS.lib.WordArray = CryptoJS.lib.WordArray.create(testText);
-      const iv = window.crypto.getRandomValues(new Uint8Array(16));
       const key : CryptoKey = await window.crypto.subtle.importKey("raw", this.sharedSecretA, "AES-CBC", false, ["decrypt", "encrypt"]);
       let systemKey: ArrayBuffer = new ArrayBuffer(128/8);
       const systemKeyRandom = window.crypto.getRandomValues(new Uint8Array(systemKey));
       let encryptedSystemKey: ArrayBuffer = await window.crypto.subtle.encrypt({
           name: "AES-CBC",
-          iv: iv
+          iv: this.initialVector
         },
         key,
         systemKeyRandom
@@ -399,20 +401,19 @@ export class HomeComponent implements OnInit, OnDestroy {
       this.consoleHTML = JSON.stringify(new Buffer(systemKeyRandom));
       this.consoleHTML = "Encrypted text in Uint8Array";
       this.consoleHTML = JSON.stringify(new Buffer(encryptedSystemKey));
-      this.sendDataOnPort(this.portA, DataType.INITIAL_VECTOR , iv.buffer);
       this.sendDataOnPort(this.portA, DataType.ENCRYPTED_SYSTEMKEY_WITH_SHAREDKEY ,encryptedSystemKey);
       //this.consoleHTML = JSON.stringify(encryptedTestText);
     }
   }
 
-  async DecryptDatas(key: ArrayBuffer, initialVector: ArrayBuffer, encryptedDatas: ArrayBuffer) : Promise<ArrayBuffer|undefined> {
+  async DecryptDatas(key: ArrayBuffer, encryptedDatas: ArrayBuffer) : Promise<ArrayBuffer|undefined> {
     if (this.sharedSecretB !== undefined) {
       const enc = new TextDecoder();
       //let testTextWordArray: CryptoJS.lib.WordArray = CryptoJS.lib.WordArray.create(testText);
       const keyImported : CryptoKey = await window.crypto.subtle.importKey("raw", key, "AES-CBC", false, ["decrypt", "encrypt"]);
       let decryptedTestText: ArrayBuffer = await window.crypto.subtle.decrypt({
           name: "AES-CBC",
-          iv: initialVector
+          iv: this.initialVector
         },
         keyImported,
         encryptedDatas
