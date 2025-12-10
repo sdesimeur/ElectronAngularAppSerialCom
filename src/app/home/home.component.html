@@ -6,22 +6,28 @@
     Exchange a system key.<br>
     Exchange encrypted data.<br>
   </h1>
-  <p>Diffie-Hellman implementation referer to <B>Alice-Bob</B> exchange on this <a href="https://fr.wikipedia.org/wiki/%C3%89change_de_cl%C3%A9s_Diffie-Hellman">wiki</a></p>
+  <p>Diffie-Hellman implementation referer to <B>Alice-Bob</B> exchange on this <a href="https://fr.wikipedia.org/wiki/%C3%89change_de_cl%C3%A9s_Diffie-Hellman_bas%C3%A9_sur_les_courbes_elliptiques">wiki</a></p>
   <p>If this PC has to act as <B>Alice</B> and initiate the first exchange, select a serial device for Alice exchanges:</p>
-  <select [(ngModel)]="serialPortIdA" [ngModelOptions]="{standalone: true}">
+  <select [(ngModel)]="A.serialPortId" [ngModelOptions]="{standalone: true}">
     <option *ngFor="let sp of serialPorts; index as id" [ngValue]="id">{{sp.path}}</option>
   </select><br>
   <p>If this PC has to act as <B>Bob</B> and receive the first exchange, select a serial device for Bob exchanges:</p>
-  <select [(ngModel)]="serialPortIdB" [ngModelOptions]="{standalone: true}">
+  <select [(ngModel)]="B.serialPortId" [ngModelOptions]="{standalone: true}">
     <option *ngFor="let sp of serialPorts; index as id" [ngValue]="id">{{sp.path}}</option>
   </select>
   <br>
   <br>
-  <a (click)="sendDataSerialPortA()" class="button">Exchange shared key on selected serials ports</a>
+  <a (click)="startSerialPortListenning()" class="button">Connect selected serial ports</a>
   <br>
-  <a (click)="closeSerialPorts()" class="button">Close and reset serials ports</a>
+  <a (click)="sendDataSerialPortA()" class="button">Connect selected serial ports and send Alice shared key</a>
   <br>
   <a (click)="aliceSendEncryptedSystemKey()" class="button">Alice send encrypted SystemKey</a>
+  <br>
+  <input type="text" class="input_area" [(ngModel)]="textToSend" placeholder="Write a text to send here!" />
+  <br>
+  <a (click)="aliceSendEncryptedMsg()" class="button">Alice send encrypted Message</a>
+  <br>
+  <a (click)="closeSerialPorts()" class="button">Close and reset serials ports</a>
   </div>
   <div class="console deuxieme">
     <div [innerHTML]="consoleHTML"> </div>
