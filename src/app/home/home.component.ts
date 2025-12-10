@@ -113,16 +113,17 @@ class KeysAndSerialPortClass {
     this.sendPublicKeyDone = true;
   
     this.home.consoleHTML = "";
-    if (this.dhKeys != undefined) {
+    if (this.dhKeys !== undefined) {
       const temp = (await window.crypto.subtle.exportKey("raw", this.dhKeys.publicKey)).slice(1);
       this.sendDataOnPort(DataType.PUBLIC_KEY_ECDH, temp);
     }
   }
 
   async handleReceivePublicKey(publicKey: ArrayBuffer) {
-    if (this.dhKeys == undefined) {
+    if (this.dhKeys === undefined) {
       this.home.consoleHTML = "<p style='color:reduce;'><b>Something is wrong</b></p>"
     } else {
+      this.home.consoleHTML = JSON.stringify(new Buffer(publicKey));
       const publicKey_Key : CryptoKey = await window.crypto.subtle.importKey(
         "raw",
         publicKey,
@@ -160,7 +161,7 @@ class KeysAndSerialPortClass {
       this.home.consoleHTML = JSON.stringify(new Buffer(await window.crypto.subtle.exportKey("raw", this.sharedSecret)));
       this.home.consoleHTML = JSON.stringify(new Buffer(await window.crypto.subtle.exportKey("raw", this.sharedSecretDerivedHKDF)));
     }
-    this.sendPublicKey();
+    await this.sendPublicKey();
   }
 
   async handleReceiveEncryptedSystemKeyWithSessionKey(encryptedSystemKeyWithSharedKey: ArrayBuffer) {
@@ -194,20 +195,20 @@ class KeysAndSerialPortClass {
   }
   
   sendDataOnPort (type: DataType, arr: ArrayBuffer) {
-    let arrbuf : ArrayBuffer;
-    let dataview4arrbuf : DataView;
-    let idx : number = 0;
-    arrbuf = new ArrayBuffer(1 + 1 + arr.byteLength + 1);
-    dataview4arrbuf = new DataView(arrbuf);
-    dataview4arrbuf.setUint8(0, type);
-    dataview4arrbuf.setUint8(1, arr.byteLength);
-    idx = 2;
-    (new Uint8Array(arr)).forEach(n => {
-      dataview4arrbuf.setUint8(idx, n);
-      idx++;
-    });
-    dataview4arrbuf.setUint8(idx, 0xAA);
     if (this.port !== undefined) {
+      let arrbuf : ArrayBuffer;
+      let dataview4arrbuf : DataView;
+      let idx : number = 0;
+      arrbuf = new ArrayBuffer(1 + 1 + arr.byteLength + 1);
+      dataview4arrbuf = new DataView(arrbuf);
+      dataview4arrbuf.setUint8(0, type);
+      dataview4arrbuf.setUint8(1, arr.byteLength);
+      idx = 2;
+      (new Uint8Array(arr)).forEach(n => {
+        dataview4arrbuf.setUint8(idx, n);
+        idx++;
+      });
+      dataview4arrbuf.setUint8(idx, 0xAA);
       this.port.write(dataview4arrbuf, undefined);
       this.home.consoleHTML = "&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<u><b>" + this.name + "</b></u> : Send to " + ((this.name === "Bob")?"Alice":"Bob");
       const typeText : string = DataType[type];
@@ -469,7 +470,7 @@ export class HomeComponent implements OnInit, OnDestroy {
     this.consoleHTML = "";
     this.consoleHTML = "";
     this.consoleHTML = "";
-    this.A.sendPublicKey();
+    await this.A.sendPublicKey();
   }
   
   async aliceSendEncryptedSystemKey() {
