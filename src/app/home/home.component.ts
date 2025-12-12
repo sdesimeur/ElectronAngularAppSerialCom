@@ -123,7 +123,6 @@ class KeysAndSerialPortClass {
     if (this.dhKeys === undefined) {
       this.home.consoleHTML = "<p style='color:reduce;'><b>Something is wrong</b></p>"
     } else {
-      this.home.consoleHTML = JSON.stringify(new Buffer(publicKey));
       const publicKey_Key : CryptoKey = await window.crypto.subtle.importKey(
         "raw",
         publicKey,
@@ -159,6 +158,7 @@ class KeysAndSerialPortClass {
       );
       this.home.consoleHTML = "&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<b><u>" + this.name + "</u></b> : sharedSecret calculate with " + ((this.name === "Bob")?"Alice":"Bob") + "'s publicKey :";
       this.home.consoleHTML = JSON.stringify(new Buffer(await window.crypto.subtle.exportKey("raw", this.sharedSecret)));
+      this.home.consoleHTML = "&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<b><u>" + this.name + "</u></b> : session key derivate from above shared key :";
       this.home.consoleHTML = JSON.stringify(new Buffer(await window.crypto.subtle.exportKey("raw", this.sharedSecretDerivedHKDF)));
     }
     await this.sendPublicKey();
@@ -210,9 +210,8 @@ class KeysAndSerialPortClass {
       });
       dataview4arrbuf.setUint8(idx, 0xAA);
       this.port.write(dataview4arrbuf, undefined);
-      this.home.consoleHTML = "&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<u><b>" + this.name + "</b></u> : Send to " + ((this.name === "Bob")?"Alice":"Bob");
       const typeText : string = DataType[type];
-      this.home.consoleHTML = "[" + type + ", size " + typeText + ", " + typeText + "..., 170]";
+      this.home.consoleHTML = "&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<u><b>" + this.name + "</b></u> : Send " + typeText + " to " + ((this.name === "Bob")?"Alice":"Bob");
       this.home.consoleHTML = JSON.stringify(new Buffer(arrbuf));
     }
   }
@@ -232,7 +231,7 @@ class KeysAndSerialPortClass {
       return;
     }
     let path: string = this.home.serialPorts[this.serialPortId].path;
-    this.localStorage.store('lastportAPath', path);
+    this.localStorage.store('lastportPath' + this.name, path);
     this.port = new SerialPort.SerialPort({
       path: path,
       baudRate: 115200,
@@ -250,17 +249,24 @@ class KeysAndSerialPortClass {
           let len = dataview4arrbuf.getUint8(1);
           while (this.serialportBufferReceived.byteLength > (2 + len)) {
             let arr: ArrayBuffer = this.serialportBufferReceived.slice(2, 2 + len);
+            const typeText : string = DataType[type];
             switch (type) {
               case DataType.PUBLIC_KEY_ECDH:
                 arr = this.serialportBufferReceived.slice(1, 2 + len);
                 const arrdv: DataView = new DataView(arr);
                 arrdv.setUint8(0, 4);
+                this.home.consoleHTML = "&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<u><b>" + this.name + "</b></u> : Receive " + typeText + " from " + ((this.name === "Bob")?"Alice":"Bob");
+                this.home.consoleHTML = JSON.stringify(new Buffer(arr));
                 this.handleReceivePublicKey(arr);
                 break;
               case DataType.ENCRYPTED_SYSTEMKEY_WITH_SESSIONKEY:
+                this.home.consoleHTML = "&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<u><b>" + this.name + "</b></u> : Receive " + typeText + " from " + ((this.name === "Bob")?"Alice":"Bob");
+                this.home.consoleHTML = JSON.stringify(new Buffer(arr));
                 this.handleReceiveEncryptedSystemKeyWithSessionKey(arr);
                 break;
               case DataType.ENCRYPTED_DATAS_WITH_SYSTEMKEY:
+                this.home.consoleHTML = "&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<u><b>" + this.name + "</b></u> : Receive " + typeText + " from " + ((this.name === "Bob")?"Alice":"Bob");
+                this.home.consoleHTML = JSON.stringify(new Buffer(arr));
                 this.handleReceiveEncryptedDatasWithSystemKey(arr)
                 break;
             }
@@ -405,8 +411,8 @@ export class HomeComponent implements OnInit, OnDestroy {
 
   ngOnInit(): void {
     console.log('HomeComponent INIT');
-    let portAPath  = this.localStorage.retrieve("lastportAPath");
-    let portBPath  = this.localStorage.retrieve("lastportBPath");
+    let portAPath  = this.localStorage.retrieve("lastportPathAlice");
+    let portBPath  = this.localStorage.retrieve("lastportPathBob");
     let tmp: PortInfo = {
       path: "Aucun port",
       manufacturer: undefined,
