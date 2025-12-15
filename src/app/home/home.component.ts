@@ -27,6 +27,21 @@ enum KeyToUse {
   SYSTEM
 };
 
+
+const INITIAL_VECTOR: string = "7cb56057cb391c112e02588c74f4808e";
+const KEYS_LEN_BITS: number = 128;
+const KEYS_LEN_BYTES: number = KEYS_LEN_BITS / 8;
+
+//const ec = new EC('p' + KEYS_LEN_BITS); // secpXXXr1
+
+enum DataType {
+  NONE = 0,
+  PUBLIC_KEY_ECDH = 1,
+  ENCRYPTED_SYSTEMKEY_WITH_SESSIONKEY,
+  ENCRYPTED_DATAS_WITH_SYSTEMKEY,
+  PUBLIC_KEY,
+}
+
 class KeysAndSerialPortClass {
   dhKeys: (CryptoKeyPair | undefined) = undefined;
   systemKey: (CryptoKey| undefined) = undefined;
@@ -54,7 +69,7 @@ class KeysAndSerialPortClass {
     this.generateKeys();
   }
 
-  keyToEncrypt(key: KeyToUse): CryptoKey|undefined {
+  keyToUse(key: KeyToUse): CryptoKey|undefined {
     if (key === KeyToUse.SESSION) {
       return this.sharedSecretDerivedHKDF;
     } else {
@@ -92,7 +107,7 @@ class KeysAndSerialPortClass {
     );
   }
 
-  deriveSecretKey(privateKey: CryptoKey, publicKey: CryptoKey) {
+  calculateSharedKey(privateKey: CryptoKey, publicKey: CryptoKey) {
     return window.crypto.subtle.deriveKey(
       {
         name: "ECDH",
@@ -133,7 +148,7 @@ class KeysAndSerialPortClass {
         false,
         []
       );
-      this.sharedSecret = await this.deriveSecretKey(this.dhKeys.privateKey, publicKey_Key);
+      this.sharedSecret = await this.calculateSharedKey(this.dhKeys.privateKey, publicKey_Key);
       const temp: CryptoKey = await window.crypto.subtle.importKey(
         "raw",
         await window.crypto.subtle.exportKey("raw", this.sharedSecret),
@@ -218,6 +233,7 @@ class KeysAndSerialPortClass {
 
   startSerialPort () {
     if (this.home.serialPorts[this.serialPortId] === undefined) {
+      this.localStorage.store('lastportPath' + this.name, "");
       return;
     }
     if (this.port !== undefined) {
@@ -228,6 +244,7 @@ class KeysAndSerialPortClass {
       }
     }
     if (this.serialPortId === 0) {
+      this.localStorage.store('lastportPath' + this.name, "");
       return;
     }
     let path: string = this.home.serialPorts[this.serialPortId].path;
@@ -284,7 +301,7 @@ class KeysAndSerialPortClass {
     })
   }
   async DecryptDatasAES(keyToUse: KeyToUse, encryptedDatas: ArrayBuffer) : Promise<ArrayBuffer|undefined> {
-    let key: CryptoKey | undefined = this.keyToEncrypt(keyToUse);
+    let key: CryptoKey | undefined = this.keyToUse(keyToUse);
     if (key !== undefined) {
         let decryptedTestText: ArrayBuffer = await window.crypto.subtle.decrypt({
           name: "AES-CBC",
@@ -299,7 +316,7 @@ class KeysAndSerialPortClass {
   }
   
   async EncryptDatasAES(keyToUse: KeyToUse, clearDatas: ArrayBuffer) : Promise<ArrayBuffer|undefined> {
-    let key: CryptoKey | undefined = this.keyToEncrypt(keyToUse);
+    let key: CryptoKey | undefined = this.keyToUse(keyToUse);
     if (key !== undefined) {
         let encryptedTestText: ArrayBuffer = await window.crypto.subtle.encrypt({
             name: "AES-CBC",
@@ -329,20 +346,6 @@ class KeysAndSerialPortClass {
     this.serialportBufferReceived = new ArrayBuffer(0);
   }
   
-}
-
-const INITIAL_VECTOR: string = "7cb56057cb391c112e02588c74f4808e";
-const KEYS_LEN_BITS: number = 128;
-const KEYS_LEN_BYTES: number = KEYS_LEN_BITS / 8;
-
-//const ec = new EC('p' + KEYS_LEN_BITS); // secpXXXr1
-
-enum DataType {
-  NONE = 0,
-  PUBLIC_KEY_ECDH = 1,
-  ENCRYPTED_SYSTEMKEY_WITH_SESSIONKEY,
-  ENCRYPTED_DATAS_WITH_SYSTEMKEY,
-  PUBLIC_KEY,
 }
 
 @Component({
